@@ -1,13 +1,11 @@
 import duckdb
 import streamlit as st
 import numpy as np
-#from code_editor import code_editor
 import altair as alt
 import os, sys
 
 st.set_page_config(page_title="wistless", page_icon=":duck:")
 
-# @st.cache_resource
 def get_db_connection():
     """ connect to database, hard-coded file and read-only
     """
@@ -32,28 +30,9 @@ def create_side_bar(conn: duckdb.DuckDBPyConnection):
     cur = conn.cursor()
 
     with st.sidebar:
-        #st.divider()
 
         st.markdown("# how to use this tool")
         st.write('Query the database for samples that meet specified conditions using the query builder. After running a query, you can export the results to a file and/or visualize aspects of the results. T and property fitting will be added at some point.')
-
-        #table_list = ""
-        #cur.execute("show all tables")
-        #recs = cur.fetchall()
-
-        #if len(recs) > 0:
-        #    st.markdown("# tables")
-
-        #for rec in recs:
-        #    table_name = rec[2]
-        #    if table_name != 'sqlite_sequence':
-        #        table_list += f"- {table_name}\n"
-        #        cur.execute(f"describe {table_name}")
-
-        #        for col in cur.fetchall():
-        #            table_list += f"    - {col[0]} {col[1]}\n"
-
-        #st.markdown(table_list)
 
 def create_page(conn: duckdb.DuckDBPyConnection):
     """ page design
@@ -71,7 +50,6 @@ def create_page(conn: duckdb.DuckDBPyConnection):
 
     minP,maxP,minT,maxT = conn.sql("SELECT min(pres), max(pres), min(temp), max(temp) FROM pt").fetchall()[0]
 
-    #tab_build, tab_write, tab_plot = st.tabs(['query builder','direct SQL','data viz'])
     tab_build, tab_plot = st.tabs(['query builder','data viz'])
 
 ########################################################################
@@ -149,65 +127,15 @@ def create_page(conn: duckdb.DuckDBPyConnection):
             except Exception as e:
                 st.error(e)
 
-        #@st.fragment()
-        #def download_dfs():
         if st.button("download results",key='qb_download'):
             if 'pt_df' in st.session_state.keys():
                 st.session_state['pt_df'].to_csv("pt_results.csv",index=False)
                 st.toast("query results written to file",icon="🦆")
                 st.balloons()
-        #download_dfs()
 
-#########################################################################
-#    # DIY SQL
-#    with tab_write:
-#        st.write("enter your query below")
-#        #st.write("ctrl+enter to run the SQL")
-#        custom_buttons = [ {"name": "Submit",
-#               "feather": "Play",
-#               "alwaysOn": True,
-#               "primary": True,
-#               "hasText": True,
-#               "showWithIcon": True,
-#               "commands": ["submit"],
-#               "style": {"bottom": "0.44rem", "right": "0.4rem"}
-#             },]
-#        res = code_editor(code="", lang="sql", key="editor", buttons=custom_buttons, height='100px')
-#
-#        # tabular printout, download
-#        st.write('query results:')
-#        for query in res["text"].split(";"):
-#            if query.strip() == "":
-#                continue
-#            try:
-#                cur.execute(query)
-#                df = cur.fetch_df()
-#                st.session_state['pt_df'] = df  # save for later! can in theory then plot?
-#                st.toast("%i query results saved to session" % len(df),icon="🦆")
-#            except Exception as e:
-#                st.error(e)
-#
-#        @st.fragment()
-#        def download_dfs():
-#            if st.button("download results",key='sql_download'):
-#                if 'pt_df' in st.session_state.keys():
-#                    st.session_state['pt_df'].to_csv("pt_results.csv",index=False)
-#                    st.balloons()
-#        download_dfs()
 
 
     with tab_plot:
-        #if 'pt_df' not in st.session_state.keys():
-        #    st.write("no query results to plot - go run a query first")
-        #else:
-        if st.button("check what's available"):
-            if 'pt_df' not in st.session_state.keys():
-                st.write("no query results to plot - go run a query first")
-            else:
-                avail_cols = st.session_state['pt_df'].columns
-                st.write("%i query results" % len(st.session_state['pt_df']))
-                st.write("available columns are %s" % (', '.join(avail_cols)))
-
         if 'pt_df' in st.session_state.keys():
             avail_cols = st.session_state['pt_df'].columns
         else:
