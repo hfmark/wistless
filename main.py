@@ -33,6 +33,13 @@ def create_side_bar(conn: duckdb.DuckDBPyConnection):
 
         st.markdown("# how to use this tool")
         st.write('Query the database for samples that meet specified conditions using the query builder. After running a query, you can export the results to a file and/or visualize aspects of the results. T and property fitting will be added at some point.')
+        st.divider()
+        st.markdown("## the database")
+        st.write("Lower crustal samples run through perpleX. Each sample has associated text quantities (name, rock type, per/metaluminous flag), bulk composition (and associated wt%SiO2, Mg#), and calculated quantities (vp, vs, density on a grid of P and T).")
+        st.markdown("## filter conditions")
+        st.write("Pretty much all values can be used to filter the database. The most useful filter types are usually +-, where the user sets a center value and +/- range; and %, where the user sets a center value and percentage range. Other standard conditionals (<, >, =) are available. The 'in' option lets users select a specific range for a quantity within the full range of values in the database. For bulk composition this may be helpful; for calculated things like vp and vs, there are some extreme outlier values that make the sliders less useful.")
+        st.markdown("## returns")
+        st.write("Users can specify which quantities to return. Those are the things that will be output to a file and that are made available for plotting in the data viz tab.")
 
 def create_page(conn: duckdb.DuckDBPyConnection):
     """ page design
@@ -50,7 +57,7 @@ def create_page(conn: duckdb.DuckDBPyConnection):
 
     minP,maxP,minT,maxT = conn.sql("SELECT min(pres), max(pres), min(temp), max(temp) FROM pt").fetchall()[0]
 
-    tab_build, tab_plot = st.tabs(['query builder','data viz'])
+    tab_build, tab_plot, tab_calc = st.tabs(['query builder','data viz','(mis)fitting'])
 
 ########################################################################
     # query builder
@@ -67,11 +74,15 @@ def create_page(conn: duckdb.DuckDBPyConnection):
         for ic,ccc in enumerate(inputs):
             ccc[0].write(to_filter[ic])  # the thing we are filtering on
             if dtypes[to_filter[ic]] != "VARCHAR":  # numeric data types
-                rad = ccc[1].radio('condition type',key='radio_%i' % ic,options=['<',r"\>",'<=',r'\>=','=','!=','in'])
+                rad = ccc[1].selectbox('condition type',key='radio_%i' % ic,options=['+-','%','<',">",'<=','>=','=','!=','in'])
                 # get the numeric range so we don't set anything weird
                 minV,maxV = conn.sql("SELECT min(%s), max(%s) FROM arr WHERE %s >= 0" % (to_filter[ic],to_filter[ic],to_filter[ic])).fetchall()[0]
                 if rad == 'in':  # range slider
                     val = ccc[2].slider('range',min_value=minV,max_value=maxV,value=(minV,maxV))
+                elif rad in ['+-','%']:
+                    v0 = ccc[2].number_input('center',key='val0_%i' % ic,min_value=minV,max_value=maxV)
+                    v1 = ccc[2].number_input('range',key='val1_%i' % ic,min_value=0.,max_value=100.,step=0.01)
+                    val = (v0,v1)
                 else:  # simple conditional
                     val = ccc[2].number_input('value',key='value_%i' % ic,min_value=minV,max_value=maxV)
             if dtypes[to_filter[ic]] == "VARCHAR":  # string data types
@@ -81,9 +92,13 @@ def create_page(conn: duckdb.DuckDBPyConnection):
             rads.append(rad)
             vals.append(val)
 
+        st.session_state['filts'] = to_filter
+        st.session_state['rads'] = rads
+        st.session_state['vals'] = vals  # save for joint misfit calc
+
         # returns, P/T sliders
-        (p_lo,p_hi) = st.slider('pressure range, GPa',min_value=minP,max_value=maxP,value=(minP,maxP))
-        (t_lo,t_hi) = st.slider('temperature range, C',min_value=minT,max_value=maxT,value=(minT,maxT))
+        (p_lo,p_hi) = st.slider('pressure range, GPa',min_value=minP,max_value=maxP,value=(minP,maxP),key='pressure_slider')
+        (t_lo,t_hi) = st.slider('temperature range, C',min_value=minT,max_value=maxT,value=(minT,maxT),key='temper_slider')
         to_return  = st.multiselect('fields to return',arr_vars)
                 
         # build the query from all of the things
@@ -99,11 +114,18 @@ def create_page(conn: duckdb.DuckDBPyConnection):
 
         # make ands from the filter lists
         for i in range(len(to_filter)):
-            if rads[i] in ['<',r"\>",'<=',r'\>=','=','!='] and dtypes[to_filter[i]] != "VARCHAR":
+            if rads[i] in ['<',">",'<=','>=','=','!='] and dtypes[to_filter[i]] != "VARCHAR":
                 ands.append("%s %s %.2f" % (to_filter[i],rads[i].lstrip('\\'),vals[i]))
                 if rads[i] in ['<','<=']:
                     ands.append("%s %s 0" % (to_filter[i],r'>='))  # screen out -999s that are nulls
-
+            elif rads[i] == '+-':
+                low = vals[i][0] - vals[i][1]
+                hgh = vals[i][0] + vals[i][1]
+                ands.append("%s between %f and %f" % (to_filter[i],low,hgh))
+            elif rads[i] == '%':
+                low = vals[i][0] - vals[i][1]*vals[i][0]/100
+                hgh = vals[i][0] + vals[i][1]*vals[i][0]/100
+                ands.append("%s between %f and %f" % (to_filter[i],low,hgh))
             elif rads[i] == 'in':  # this is not an option for strings, and it's slider only right now
                 ands.append("%s between %f and %f" % (to_filter[i],vals[i][0],vals[i][1]))
             elif rads[i] in  ['=','!='] and dtypes[to_filter[i]] == "VARCHAR":
@@ -134,42 +156,101 @@ def create_page(conn: duckdb.DuckDBPyConnection):
                 st.balloons()
 
 
+        if st.button('reset everything'):
+            for k in st.session_state.keys():
+                del st.session_state[k]
+            st.rerun()
+
+
 
     with tab_plot:
         if 'pt_df' in st.session_state.keys():
             avail_cols = st.session_state['pt_df'].columns
+            avail_cols_num = [c for c in st.session_state['pt_df'].columns if st.session_state['pt_df'][c].dtype in [float,int,'float32','float64','int64','int32']]
+            avail_cols_txt = [c for c in st.session_state['pt_df'].columns if st.session_state['pt_df'][c].dtype in ['O',str]]
         else:
             avail_cols = []
-        p_scatter,p_hist,p_heatmap = st.tabs(['scatter plot','histogram','P/T heatmap'])
+            avail_cols_num = []
+            avail_cols_txt = []
+        p_scatter,p_hist,p_heatmap,p_textpie = st.tabs(['scatter plot','histogram','P/T heatmap','category pie chart'])
         with p_scatter:
             # scatter plot, for now
             xax = st.selectbox("x axis quantity",avail_cols)
             yax = st.selectbox("y axis quantity",avail_cols)
-
-            @st.fragment()
-            def scatter_plot():
-                if st.button("make scatter plot"):
-                    st.scatter_chart(data=st.session_state['pt_df'],x=xax,y=yax)
-            scatter_plot()
+            if st.button("make scatter plot"):
+                st.scatter_chart(data=st.session_state['pt_df'],x=xax,y=yax)
 
         with p_hist:
-            hxax = st.selectbox("histogram quantity",avail_cols)
-
-            @st.fragment()
-            def hist_plot():
-                if st.button("make histogram"):
-                    st.altair_chart(alt.Chart(st.session_state['pt_df']).mark_bar().encode(alt.X(hxax,bin=True),y='count()',))
-            hist_plot()
+            hxax = st.selectbox("histogram quantity",avail_cols_num)  # no text hist, they don't work
+            if st.button("make histogram"):
+                st.altair_chart(alt.Chart(st.session_state['pt_df']).mark_bar().encode(alt.X(hxax,bin=True),y='count()',))
 
         with p_heatmap:
             if 'pres' in avail_cols and 'temp' in avail_cols:
-                @st.fragment()
-                def ptheat_plot():
-                    if st.button("plot P/T heatmap"):
-                        st.altair_chart(alt.Chart(st.session_state['pt_df']).mark_rect().encode(alt.X('pres:Q').bin(),alt.Y('temp:Q').bin(),alt.Color('count():Q').scale(scheme='greenblue')))
-                ptheat_plot()
+                if st.button("plot P/T heatmap"):
+                    st.altair_chart(alt.Chart(st.session_state['pt_df']).mark_rect().encode(alt.X('pres:Q').bin(),alt.Y('temp:Q').bin(),alt.Color('count():Q').scale(scheme='greenblue')))
             else:
                 st.write('need pres and temp returned to make this heatmap')
+
+        with p_textpie:
+            if len(avail_cols_txt) > 0:
+                pie = st.selectbox("thing to chart",avail_cols_txt)
+                if st.button("make chart"):
+                    st.altair_chart(alt.Chart(st.session_state['pt_df']).mark_arc(innerRadius=50).encode(theta=alt.Theta("count():Q"),color=alt.Color(pie,type='nominal')))
+
+    with tab_calc:
+        # joint misfit: vp, vs, vpvs only (and = or in a range)
+        if st.button("calculate (joint) misfit)"):
+            mis_calc = 'calculated '
+            # check if vp, vs, or vpvs is in the filters with the right kind of condition
+            if 'filts' in st.session_state.keys() and 'pt_df' in st.session_state.keys():
+                for i in range(len(st.session_state['rads'])):  # individual misfits
+                    ff = st.session_state['filts'][i]
+                    vv = st.session_state['vals'][i]
+                    rr = st.session_state['rads'][i]
+                    if ff in ['vp','vs','vpvs'] and rr in ['in','=','+-','%'] and ff in st.session_state['pt_df'].columns:
+                        if rr == 'in':
+                            fitval = vv[0] + (vv[1] - vv[0])/2
+                        else:
+                            fitval = vv[0]
+                        st.session_state['pt_df']['misfit_%s' % ff] = (st.session_state['pt_df'][ff] - fitval)/fitval
+                        mis_calc += 'misfit_%s, ' % ff
+
+                new_joint = np.zeros(len(st.session_state['pt_df']))
+                for col in st.session_state['pt_df'].columns:
+                    if col.startswith('misfit_'):
+                        new_joint += st.session_state['pt_df'][col]**2
+                st.session_state['pt_df'].loc[:,'joint_misfit'] = np.sqrt(new_joint)
+                mis_calc += 'joint misfit'
+                st.write(mis_calc)
+
+        # best fit T: gaussian or min misfit  TODO min misfit, callback and columns
+        if st.button('calculate best fit T'):
+            if 'pt_df' in st.session_state.keys() and 'temp' in st.session_state['pt_df'].columns:
+                Ts, counts = np.unique(st.session_state['pt_df']['temp'],return_counts=True)
+                sum_fits = sum(counts)
+                sum_M2 = sum(counts*Ts**2)
+                best_T = sum(Ts*counts)/sum_fits
+                st.write(best_T)
+
+        # misfit-weighted mean and stdev for some property
+        avail_cols_num = []
+        if 'pt_df' in st.session_state.keys() and 'pres' in st.session_state['pt_df'].columns and 'temp' in st.session_state['pt_df'].columns:
+            avail_cols_num = [c for c in st.session_state['pt_df'].columns if st.session_state['pt_df'][c].dtype in [float,int,'float32','float64','int64','int32']]
+            c1,c2,c3 = st.columns(3)
+            with c1:
+                propfit = st.selectbox('property to fit',avail_cols_num)
+            with c2:
+                pfit = st.select_slider('fit pressure',options = np.unique(st.session_state['pt_df']['pres']),format_func=lambda x:'%.2f' % x)
+            with c3:
+                tfit = st.select_slider('fit temperature',options = np.unique(st.session_state['pt_df']['temp']),format_func=lambda x:'%.2f' % x)
+            if st.button("fit property"):
+                sel = st.session_state['pt_df'][(st.session_state['pt_df']['pres'] == pfit)&(st.session_state['pt_df']['temp'] == tfit)]
+                if len(sel) > 1 and 'joint_misfit' in sel.columns:
+                    mean_val = np.average(sel[propfit],weights=1./sel['joint_misfit'])
+                    std_val = np.sqrt(np.cov(sel[propfit], aweights=1./sel['joint_misfit']))
+                    st.write(mean_val,std_val,len(sel))
+
 
 def pt_select(cursor,pt,tofit,return_and=True):
     """ get ip or it values 
