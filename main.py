@@ -24,11 +24,8 @@ def main():
 
 def create_side_bar(conn: duckdb.DuckDBPyConnection):
     """ sidebar design
-
-    currently a list of tables and their columns/data types
+    currently doc text
     """
-    cur = conn.cursor()
-
     with st.sidebar:
 
         st.markdown("# how to use this tool")
