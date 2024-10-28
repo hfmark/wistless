@@ -1,17 +1,46 @@
 import duckdb
 import streamlit as st
 import numpy as np
+import pandas as pd
 import altair as alt
 import os, sys
 
+from streamlit.connections import ExperimentalBaseConnection
+from streamlit.runtime.caching import cache_data
+
 st.set_page_config(page_title="wistless", page_icon=":duck:")
+
+class DuckDBConnection(ExperimentalBaseConnection[duckdb.DuckDBPyConnection]):
+    """Basic st.experimental_connection implementation for DuckDB"""
+
+    def _connect(self, **kwargs) -> duckdb.DuckDBPyConnection:
+        if 'database' in kwargs:
+            db = kwargs.pop('database')
+        else:
+            db = self._secrets['database']
+        return duckdb.connect(database=db, **kwargs)
+    
+    def cursor(self) -> duckdb.DuckDBPyConnection:
+        return self._instance.cursor()
+
+    def query(self, query: str, ttl: int = 3600, **kwargs) -> pd.DataFrame:
+        @cache_data(ttl=ttl)
+        def _query(query: str, **kwargs) -> pd.DataFrame:
+            cursor = self.cursor()
+            cursor.execute(query, **kwargs)
+            return cursor.df()
+        
+        return _query(query, **kwargs)
+
+    def sql(self,query: str):
+        return self._instance.sql(query)
 
 def get_db_connection():
     """ connect to database, hard-coded file and read-only
     """
     if "duck_conn" not in st.session_state:
-        st.session_state["duck_conn"] = duckdb.connect(database="Data/hacker_noamph_denorm.db",read_only=True)
-
+        #st.session_state["duck_conn"] = duckdb.connect(database="Data/hacker_noamph_denorm.db",read_only=True)
+        st.session_state['duck_conn'] = DuckDBConnection(connection_name='duck',database='Data/hacker_noamph_denorm.db',read_only=True)
     return st.session_state["duck_conn"]
 
 def main():
@@ -154,6 +183,7 @@ def create_page(conn: duckdb.DuckDBPyConnection):
 
 
         if st.button('reset everything'):
+            conn._instance.close()
             for k in st.session_state.keys():
                 del st.session_state[k]
             st.rerun()
@@ -220,6 +250,8 @@ def create_page(conn: duckdb.DuckDBPyConnection):
                 st.session_state['pt_df'].loc[:,'joint_misfit'] = np.sqrt(new_joint)
                 mis_calc += 'joint misfit'
                 st.write(mis_calc)
+            else:
+                st.write('no misfit calculated; filter on vp, vs, and/or vpvs first')
 
         # best fit T: gaussian or min misfit  TODO min misfit, callback and columns
         if st.button('calculate best fit T'):
@@ -229,6 +261,8 @@ def create_page(conn: duckdb.DuckDBPyConnection):
                 sum_M2 = sum(counts*Ts**2)
                 best_T = sum(Ts*counts)/sum_fits
                 st.write(best_T)
+            else:
+                st.write('run a query that returns temp, and calculate misfit, before fitting T')
 
         # misfit-weighted mean and stdev for some property
         avail_cols_num = []
@@ -247,6 +281,8 @@ def create_page(conn: duckdb.DuckDBPyConnection):
                     mean_val = np.average(sel[propfit],weights=1./sel['joint_misfit'])
                     std_val = np.sqrt(np.cov(sel[propfit], aweights=1./sel['joint_misfit']))
                     st.write(mean_val,std_val,len(sel))
+                else:
+                    st.write('not enough samples in range to fit')
 
 
 def pt_select(cursor,pt,tofit,return_and=True):
