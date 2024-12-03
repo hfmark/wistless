@@ -25,7 +25,8 @@ class DuckDBConnection(ExperimentalBaseConnection[duckdb.DuckDBPyConnection]):
         s3_access_key = os.getenv(env_var1)
         s3_secret_key = os.getenv(env_var2)
         secret_name = "s3_secret"
-        #duckdb.sql("LOAD httpfs")
+        duckdb.sql("INSTALL httpfs")
+        duckdb.sql("LOAD httpfs")
         try:
             duckdb.sql(f"""
             CREATE SECRET {secret_name} (
