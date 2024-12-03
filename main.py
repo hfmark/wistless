@@ -46,7 +46,7 @@ class DuckDBConnection(ExperimentalBaseConnection[duckdb.DuckDBPyConnection]):
             print(f"Successfully created secret: {secret_name}")
 
         conn = duckdb.connect()
-        #conn.execute("ATTACH 's3://%s/%s' AS stuff" % (s3_bucket, s3_file))
+        conn.execute("ATTACH 's3://%s/%s' AS stuff (READ_ONLY)" % (s3_bucket, s3_file))
         return conn
     
     def cursor(self) -> duckdb.DuckDBPyConnection:
@@ -78,7 +78,7 @@ def main():
     """
     conn = get_db_connection()
     create_side_bar(conn)
-    #create_page(conn)
+    create_page(conn)
 
 
 def create_side_bar(conn: duckdb.DuckDBPyConnection):
