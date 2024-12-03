@@ -24,7 +24,6 @@ class DuckDBConnection(ExperimentalBaseConnection[duckdb.DuckDBPyConnection]):
         env_var2 = "SECRET_KEY"
         s3_access_key = os.getenv(env_var1)
         s3_secret_key = os.getenv(env_var2)
-        print(s3_access_key)
         secret_name = "s3_secret"
         duckdb.sql("INSTALL httpfs")
         duckdb.sql("LOAD httpfs")
@@ -47,7 +46,7 @@ class DuckDBConnection(ExperimentalBaseConnection[duckdb.DuckDBPyConnection]):
             print(f"Successfully created secret: {secret_name}")
 
         conn = duckdb.connect()
-        conn.execute("ATTACH 's3://%s/%s' AS stuff" % (s3_bucket, s3_file))
+        #conn.execute("ATTACH 's3://%s/%s' AS stuff" % (s3_bucket, s3_file))
         return conn
     
     def cursor(self) -> duckdb.DuckDBPyConnection:
@@ -79,7 +78,7 @@ def main():
     """
     conn = get_db_connection()
     create_side_bar(conn)
-    create_page(conn)
+    #create_page(conn)
 
 
 def create_side_bar(conn: duckdb.DuckDBPyConnection):
