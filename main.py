@@ -57,7 +57,7 @@ def create_side_bar(conn: duckdb.DuckDBPyConnection):
     with st.sidebar:
 
         st.markdown("# how to use this tool")
-        st.write('Query the database for samples that meet specified conditions using the query builder. After running a query, you can export the results to a file and/or visualize aspects of the results. T and property fitting will be added at some point.')
+        st.write('Query the database for samples that meet specified conditions using the query builder. After running a query, you can visualize aspects of the results and do some very minimal property fitting. More will be added (including csv download) at some point.')
         st.divider()
         st.markdown("## the database")
         st.write("Lower crustal samples run through perpleX. Each sample has associated text quantities (name, rock type, per/metaluminous flag), bulk composition (and associated wt%SiO2, Mg#), and calculated quantities (vp, vs, density on a grid of P and T).")
@@ -174,11 +174,11 @@ def create_page(conn: duckdb.DuckDBPyConnection):
             except Exception as e:
                 st.error(e)
 
-        if st.button("download results",key='qb_download'):
-            if 'pt_df' in st.session_state.keys():
-                st.session_state['pt_df'].to_csv("pt_results.csv",index=False)
-                st.toast("query results written to file",icon="🦆")
-                st.balloons()
+        #if st.button("download results",key='qb_download'):
+        #    if 'pt_df' in st.session_state.keys():
+        #        st.session_state['pt_df'].to_csv("pt_results.csv",index=False)
+        #        st.toast("query results written to file",icon="🦆")
+        #        st.balloons()
 
 
         if st.button('reset everything'):
