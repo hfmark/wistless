@@ -14,11 +14,39 @@ class DuckDBConnection(ExperimentalBaseConnection[duckdb.DuckDBPyConnection]):
     """Basic st.experimental_connection implementation for DuckDB"""
 
     def _connect(self, **kwargs) -> duckdb.DuckDBPyConnection:
-        if 'database' in kwargs:
-            db = kwargs.pop('database')
+        # set up stuff for s3
+        s3_region = "us-east-1"
+        s3_bucket = "wistless-duckdb"
+        s3_file = "hacker_noamph_denorm.db"
+
+        # make the secret
+        env_var1 = "ACCESS_KEY"
+        env_var2 = "SECRET_KEY"
+        s3_access_key = os.getenv(env_var1)
+        s3_secret_key = os.getenv(env_var2)
+        secret_name = "s3_secret"
+        #duckdb.sql("LOAD httpfs")
+        try:
+            duckdb.sql(f"""
+            CREATE SECRET {secret_name} (
+                TYPE S3,
+                KEY_ID '{s3_access_key}',
+                SECRET '{s3_secret_key}',
+                REGION '{s3_region}'
+            );
+            """)
+        except Exception as e:
+            if str(e) == f"Invalid Input Error: Temporary secret with name '{secret_name}' already exists!":
+                print('secret already exists, continuing')
+            else:
+                print('unknown error')
+                exit(1)
         else:
-            db = self._secrets['database']
-        return duckdb.connect(database=db, **kwargs)
+            print(f"Successfully created secret: {secret_name}")
+
+        conn = duckdb.connect()
+        conn.execute("ATTACH 's3://%s/%s' AS stuff" % (s3_bucket, s3_file))
+        return conn
     
     def cursor(self) -> duckdb.DuckDBPyConnection:
         return self._instance.cursor()
@@ -40,7 +68,8 @@ def get_db_connection():
     """
     if "duck_conn" not in st.session_state:
         #st.session_state["duck_conn"] = duckdb.connect(database="Data/hacker_noamph_denorm.db",read_only=True)
-        st.session_state['duck_conn'] = DuckDBConnection(connection_name='duck',database='Data/hacker_noamph_denorm.db',read_only=True)
+        #st.session_state['duck_conn'] = DuckDBConnection(connection_name='duck',database='Data/hacker_noamph_denorm.db',read_only=True)
+        st.session_state['duck_conn'] = DuckDBConnection(connection_name='duck',read_only=True)
     return st.session_state["duck_conn"]
 
 def main():
@@ -78,10 +107,10 @@ def create_page(conn: duckdb.DuckDBPyConnection):
 
     skip_these = ['ip','id','it','meh']  # columns that should not be returnable or filterable
     # (P and T are dealt with separately, don't need ip or it directly, and id is for internal use)
-    arr_vars = [e[0] for e in cur.execute("describe arr").fetchall() if e[0] not in skip_these]
+    arr_vars = [e[0] for e in cur.execute("describe stuff.arr").fetchall() if e[0] not in skip_these]
     dtypes = dict(conn.sql("select column_name, data_type from information_schema.columns").fetchall())
 
-    minP,maxP,minT,maxT = conn.sql("SELECT min(pres), max(pres), min(temp), max(temp) FROM pt").fetchall()[0]
+    minP,maxP,minT,maxT = conn.sql("SELECT min(pres), max(pres), min(temp), max(temp) FROM stuff.pt").fetchall()[0]
 
     tab_build, tab_plot, tab_calc = st.tabs(['query builder','data viz','(mis)fitting'])
 
@@ -102,7 +131,7 @@ def create_page(conn: duckdb.DuckDBPyConnection):
             if dtypes[to_filter[ic]] != "VARCHAR":  # numeric data types
                 rad = ccc[1].selectbox('condition type',key='radio_%i' % ic,options=['+-','%','<',">",'<=','>=','=','!=','in'])
                 # get the numeric range so we don't set anything weird
-                minV,maxV = conn.sql("SELECT min(%s), max(%s) FROM arr WHERE %s >= 0" % (to_filter[ic],to_filter[ic],to_filter[ic])).fetchall()[0]
+                minV,maxV = conn.sql("SELECT min(%s), max(%s) FROM stuff.arr WHERE %s >= 0" % (to_filter[ic],to_filter[ic],to_filter[ic])).fetchall()[0]
                 if rad == 'in':  # range slider
                     val = ccc[2].slider('range',min_value=minV,max_value=maxV,value=(minV,maxV))
                 elif rad in ['+-','%']:
@@ -157,7 +186,7 @@ def create_page(conn: duckdb.DuckDBPyConnection):
             elif rads[i] in  ['=','!='] and dtypes[to_filter[i]] == "VARCHAR":
                 ands.append("%s %s '%s'" % (to_filter[i],rads[i],vals[i]))
         arr_ret.append('id')
-        q1 = "SELECT %s FROM arr WHERE " % (', '.join(arr_ret))
+        q1 = "SELECT %s FROM stuff.arr WHERE " % (', '.join(arr_ret))
         for i,a in enumerate(ands):
             q1 += a
             if i != len(ands)-1:
@@ -298,12 +327,12 @@ def pt_select(cursor,pt,tofit,return_and=True):
         tofit = [tofit[0],]
     if len(tofit) == 1:
         low = tofit[0] - dp[pt]; hgh = tofit[0] + dp[pt]
-        qp = "SELECT id FROM pt WHERE %s BETWEEN ? AND ? ORDER BY abs(?-%s) LIMIT 1" % (col[pt],col[pt])
+        qp = "SELECT id FROM stuff.pt WHERE %s BETWEEN ? AND ? ORDER BY abs(?-%s) LIMIT 1" % (col[pt],col[pt])
         ipt = cursor.execute(qp,(low,hgh,tofit[0])).fetchall()[0][0]
         ands = "%s = %i " % (ii[pt],ipt)
     elif len(tofit) == 2:
-        ands = "%s IN (SELECT id FROM pt WHERE %s BETWEEN %f AND %f)" % (ii[pt],col[pt],tofit[0],tofit[1])
-        qp = "SELECT id FROM pt WHERE %s BETWEEN ? AND ?" % (col[pt])
+        ands = "%s IN (SELECT id FROM stuff.pt WHERE %s BETWEEN %f AND %f)" % (ii[pt],col[pt],tofit[0],tofit[1])
+        qp = "SELECT id FROM stuff.pt WHERE %s BETWEEN ? AND ?" % (col[pt])
         _ = cursor.execute(qp,(tofit[0],tofit[1]))
         ipt = np.array([e[0] for e in cursor.fetchall()])
     if return_and:
