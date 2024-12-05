@@ -180,15 +180,6 @@ def create_page(conn: duckdb.DuckDBPyConnection):
         #        st.toast("query results written to file",icon="🦆")
         #        st.balloons()
 
-
-        if st.button('reset everything'):
-            conn._instance.close()
-            for k in st.session_state.keys():
-                del st.session_state[k]
-            st.rerun()
-
-
-
     with tab_plot:
         if 'pt_df' in st.session_state.keys():
             avail_cols = st.session_state['pt_df'].columns
