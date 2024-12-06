@@ -3,6 +3,7 @@ import streamlit as st
 import numpy as np
 import pandas as pd
 import altair as alt
+from pathlib import Path
 import os, sys
 
 from streamlit.connections import ExperimentalBaseConnection
@@ -60,14 +61,7 @@ def create_side_bar(conn: duckdb.DuckDBPyConnection):
     with st.sidebar:
 
         st.markdown("# how to use this tool")
-        st.write('Query the database for samples that meet specified conditions using the query builder. After running a query, you can visualize aspects of the results and do some very minimal property fitting in the other tabs.')
-        st.divider()
-        st.markdown("## the database")
-        st.write("Lower crustal samples run through perpleX. Each sample has associated text quantities (name, rock type, per/metaluminous flag), numbers for bulk composition (and associated wt%SiO2, Mg#), and calculated quantities (vp, vs, density on a grid of P and T).")
-        st.markdown("## filter conditions")
-        st.write("Pretty much all values can be used to filter the database. The most useful filter types are usually +-, where the user sets a center value and +/- range; and %, where the user sets a center value and percentage range. Other standard conditionals (<, >, =) are available. The 'in' option lets users select a specific range for a quantity within the full range of values in the database. For bulk composition this may be helpful; for calculated quantities like vp and vs, there are some extreme outlier values that make the sliders less useful.")
-        st.markdown("## returns")
-        st.write("Users specify which quantities to return. Those are the things that can be output to a file and that are made available for plotting in the data viz tab.")
+        st.write("Query the database for samples that meet specified conditions using the query builder. After running a query, you can visualize aspects of the results and do some very minimal property fitting in the other tabs. For more information, see the 'documentation' tab")
 
 def create_page(conn: duckdb.DuckDBPyConnection):
     """ Page design
@@ -85,7 +79,7 @@ def create_page(conn: duckdb.DuckDBPyConnection):
 
     minP,maxP,minT,maxT = conn.sql("SELECT min(pres), max(pres), min(temp), max(temp) FROM hacker_noamph.pt").fetchall()[0]
 
-    tab_build, tab_plot, tab_calc = st.tabs(['query builder','data viz','(mis)fitting'])
+    tab_build, tab_plot, tab_calc, tab_doc = st.tabs(['query builder','data viz','(mis)fitting','documentation'])
 
 ########################################################################
     # query builder
@@ -261,7 +255,7 @@ def create_page(conn: duckdb.DuckDBPyConnection):
 
     with tab_calc:
         # joint misfit: vp, vs, vpvs only (and = or in a range)
-        if st.button("calculate (joint) misfit)"):
+        if st.button("calculate (joint) misfit"):
             mis_calc = 'calculated '
             # check if vp, vs, or vpvs is in the filters with the right kind of condition
             if 'filts' in st.session_state.keys() and 'pt_df' in st.session_state.keys():
@@ -317,6 +311,12 @@ def create_page(conn: duckdb.DuckDBPyConnection):
                     st.write(mean_val,std_val,len(sel))
                 else:
                     st.write('not enough samples in range to fit')
+
+    with tab_doc:
+        def read_markdown_file(mdfile):
+            return Path(mdfile).read_text()
+        lotsofdocs = read_markdown_file('wistless-docs.md')
+        st.markdown(lotsofdocs, unsafe_allow_html=True)
 
 
 def pt_select(cursor,pt,tofit,return_and=True):
