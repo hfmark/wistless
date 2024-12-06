@@ -11,7 +11,8 @@ from streamlit.runtime.caching import cache_data
 st.set_page_config(page_title="wistless", page_icon=":duck:")
 
 class DuckDBConnection(ExperimentalBaseConnection[duckdb.DuckDBPyConnection]):
-    """Basic st.experimental_connection implementation for DuckDB"""
+    """ DuckDB experimental connection using cloud access for db file
+    """
 
     def _connect(self, **kwargs) -> duckdb.DuckDBPyConnection:
         motherduck_token = os.getenv("motherduck_token")
@@ -34,16 +35,17 @@ class DuckDBConnection(ExperimentalBaseConnection[duckdb.DuckDBPyConnection]):
         return self._instance.sql(query)
 
 def get_db_connection():
-    """ connect to database, hard-coded file and read-only
+    """ Wrapper function to connect to database
+
+    _connect() can take kwargs but they are not currently being used
+    if using a local file this is where you might hard-code the path
     """
     if "duck_conn" not in st.session_state:
-        #st.session_state["duck_conn"] = duckdb.connect(database="Data/hacker_noamph_denorm.db",read_only=True)
-        #st.session_state['duck_conn'] = DuckDBConnection(connection_name='duck',database='Data/hacker_noamph_denorm.db',read_only=True)
         st.session_state['duck_conn'] = DuckDBConnection(connection_name='duck',read_only=True)
     return st.session_state["duck_conn"]
 
 def main():
-    """ initialize db connection and page when this script is run
+    """Initialize db connection and page when this script is run
     """
     conn = get_db_connection()
     create_side_bar(conn)
@@ -51,23 +53,24 @@ def main():
 
 
 def create_side_bar(conn: duckdb.DuckDBPyConnection):
-    """ sidebar design
-    currently doc text
+    """ Sidebar design
+
+    currently doc text, markdown
     """
     with st.sidebar:
 
         st.markdown("# how to use this tool")
-        st.write('Query the database for samples that meet specified conditions using the query builder. After running a query, you can visualize aspects of the results and do some very minimal property fitting. More will be added (including csv download) at some point.')
+        st.write('Query the database for samples that meet specified conditions using the query builder. After running a query, you can visualize aspects of the results and do some very minimal property fitting in the other tabs.')
         st.divider()
         st.markdown("## the database")
-        st.write("Lower crustal samples run through perpleX. Each sample has associated text quantities (name, rock type, per/metaluminous flag), bulk composition (and associated wt%SiO2, Mg#), and calculated quantities (vp, vs, density on a grid of P and T).")
+        st.write("Lower crustal samples run through perpleX. Each sample has associated text quantities (name, rock type, per/metaluminous flag), numbers for bulk composition (and associated wt%SiO2, Mg#), and calculated quantities (vp, vs, density on a grid of P and T).")
         st.markdown("## filter conditions")
-        st.write("Pretty much all values can be used to filter the database. The most useful filter types are usually +-, where the user sets a center value and +/- range; and %, where the user sets a center value and percentage range. Other standard conditionals (<, >, =) are available. The 'in' option lets users select a specific range for a quantity within the full range of values in the database. For bulk composition this may be helpful; for calculated things like vp and vs, there are some extreme outlier values that make the sliders less useful.")
+        st.write("Pretty much all values can be used to filter the database. The most useful filter types are usually +-, where the user sets a center value and +/- range; and %, where the user sets a center value and percentage range. Other standard conditionals (<, >, =) are available. The 'in' option lets users select a specific range for a quantity within the full range of values in the database. For bulk composition this may be helpful; for calculated quantities like vp and vs, there are some extreme outlier values that make the sliders less useful.")
         st.markdown("## returns")
-        st.write("Users can specify which quantities to return. Those are the things that will be output to a file and that are made available for plotting in the data viz tab.")
+        st.write("Users specify which quantities to return. Those are the things that can be output to a file and that are made available for plotting in the data viz tab.")
 
 def create_page(conn: duckdb.DuckDBPyConnection):
-    """ page design
+    """ Page design
     """
     st.title("wistless :duck:")
     st.write("(Whole-rock Interpretive Seismic Toolbox for LowEr cruStal Samples)")
@@ -96,15 +99,28 @@ def create_page(conn: duckdb.DuckDBPyConnection):
         inputs = [st.columns(3) for i in range(nf)]
         rads = []
         vals = []
+        pfilt = False; tfilt = False
         for ic,ccc in enumerate(inputs):
             ccc[0].write(to_filter[ic])  # the thing we are filtering on
-            if dtypes[to_filter[ic]] != "VARCHAR":  # numeric data types
+            if dtypes[to_filter[ic]] != "VARCHAR" and to_filter[ic] not in ['pres','temp']:  # numeric data types
                 rad = ccc[1].selectbox('condition type',key='radio_%i' % ic,options=['+-','%','<',">",'<=','>=','=','!=','in'])
                 # get the numeric range so we don't set anything weird
                 minV,maxV = conn.sql("SELECT min(%s), max(%s) FROM hacker_noamph.arr WHERE %s >= 0" % (to_filter[ic],to_filter[ic],to_filter[ic])).fetchall()[0]
                 if rad == 'in':  # range slider
                     val = ccc[2].slider('range',min_value=minV,max_value=maxV,value=(minV,maxV))
                 elif rad in ['+-','%']:
+                    v0 = ccc[2].number_input('center',key='val0_%i' % ic,min_value=minV,max_value=maxV)
+                    v1 = ccc[2].number_input('range',key='val1_%i' % ic,min_value=0.,max_value=100.,step=0.01)
+                    val = (v0,v1)
+                else:  # simple conditional
+                    val = ccc[2].number_input('value',key='value_%i' % ic,min_value=minV,max_value=maxV)
+
+            if dtypes[to_filter[ic]] != "VARCHAR" and to_filter[ic] in ['pres','temp']:  # pres or temp
+                if to_filter[ic] == 'pres': pfilt = True
+                if to_filter[ic] == 'temp': tfilt = True
+                rad = ccc[1].selectbox('condition type',key='radio_%i' % ic,options=['+-','%','<',">",'<=','>=','='])  # no "in" or "!=" for this
+                minV,maxV = conn.sql("SELECT min(%s), max(%s) FROM hacker_noamph.arr WHERE %s >= 0" % (to_filter[ic],to_filter[ic],to_filter[ic])).fetchall()[0]
+                if rad in ['+-','%']:
                     v0 = ccc[2].number_input('center',key='val0_%i' % ic,min_value=minV,max_value=maxV)
                     v1 = ccc[2].number_input('range',key='val1_%i' % ic,min_value=0.,max_value=100.,step=0.01)
                     val = (v0,v1)
@@ -122,8 +138,14 @@ def create_page(conn: duckdb.DuckDBPyConnection):
         st.session_state['vals'] = vals  # save for joint misfit calc
 
         # returns, P/T sliders
-        (p_lo,p_hi) = st.slider('pressure range, GPa',min_value=minP,max_value=maxP,value=(minP,maxP),key='pressure_slider')
-        (t_lo,t_hi) = st.slider('temperature range, C',min_value=minT,max_value=maxT,value=(minT,maxT),key='temper_slider')
+        if not pfilt:
+            (p_lo,p_hi) = st.slider('pressure range, GPa',min_value=minP,max_value=maxP,value=(minP,maxP),key='pressure_slider')
+        else:
+            p_lo, p_hi = minP, maxP
+        if not tfilt:
+            (t_lo,t_hi) = st.slider('temperature range, C',min_value=minT,max_value=maxT,value=(minT,maxT),key='temper_slider')
+        else:
+            t_lo, t_hi = minT, maxT
         to_return  = st.multiselect('fields to return',arr_vars)
                 
         # build the query from all of the things
@@ -139,21 +161,43 @@ def create_page(conn: duckdb.DuckDBPyConnection):
 
         # make ands from the filter lists
         for i in range(len(to_filter)):
-            if rads[i] in ['<',">",'<=','>=','=','!='] and dtypes[to_filter[i]] != "VARCHAR":
-                ands.append("%s %s %.2f" % (to_filter[i],rads[i].lstrip('\\'),vals[i]))
-                if rads[i] in ['<','<=']:
-                    ands.append("%s %s 0" % (to_filter[i],r'>='))  # screen out -999s that are nulls
-            elif rads[i] == '+-':
-                low = vals[i][0] - vals[i][1]
-                hgh = vals[i][0] + vals[i][1]
-                ands.append("%s between %f and %f" % (to_filter[i],low,hgh))
-            elif rads[i] == '%':
-                low = vals[i][0] - vals[i][1]*vals[i][0]/100
-                hgh = vals[i][0] + vals[i][1]*vals[i][0]/100
-                ands.append("%s between %f and %f" % (to_filter[i],low,hgh))
-            elif rads[i] == 'in':  # this is not an option for strings, and it's slider only right now
-                ands.append("%s between %f and %f" % (to_filter[i],vals[i][0],vals[i][1]))
-            elif rads[i] in  ['=','!='] and dtypes[to_filter[i]] == "VARCHAR":
+            if dtypes[to_filter[i]] != "VARCHAR" and to_filter[i] not in ['pres','temp']:
+                if rads[i] in ['<',">",'<=','>=','=','!=']:
+                    ands.append("%s %s %.2f" % (to_filter[i],rads[i].lstrip('\\'),vals[i]))
+                    if rads[i] in ['<','<=']:
+                        ands.append("%s %s 0" % (to_filter[i],r'>='))  # screen out -999s that are nulls
+                elif rads[i] == '+-':
+                    low = vals[i][0] - vals[i][1]
+                    hgh = vals[i][0] + vals[i][1]
+                    ands.append("%s between %f and %f" % (to_filter[i],low,hgh))
+                elif rads[i] == '%':
+                    low = vals[i][0] - vals[i][1]*vals[i][0]/100
+                    hgh = vals[i][0] + vals[i][1]*vals[i][0]/100
+                    ands.append("%s between %f and %f" % (to_filter[i],low,hgh))
+                elif rads[i] == 'in':  # not an option for strings, and it's slider only right now
+                    ands.append("%s between %f and %f" % (to_filter[i],vals[i][0],vals[i][1]))
+            elif dtypes[to_filter[i]] != "VARCHAR" and to_filter[i] in ['pres','temp']:
+                # figure out p_lo and p_hi basically
+                if rads[i] in ['<', "<="]:
+                    if to_filter[i] == 'pres': ands.append(pt_select(cur,'p',[p_lo,vals[i]],return_and=True))
+                    if to_filter[i] == 'temp': ands.append(pt_select(cur,'t',[t_lo,vals[i]],return_and=True))
+                elif rads[i] in ['>', ">="]:
+                    if to_filter[i] == 'pres': ands.append(pt_select(cur,'p',[vals[i],p_hi],return_and=True))
+                    if to_filter[i] == 'temp': ands.append(pt_select(cur,'t',[vals[i],t_hi],return_and=True))
+                elif rads[i] == '=':
+                    if to_filter[i] == 'pres': ands.append(pt_select(cur,'p',[vals[i],],return_and=True))
+                    if to_filter[i] == 'temp': ands.append(pt_select(cur,'t',[vals[i],],return_and=True))
+                elif rads[i] == '+-':
+                    low = vals[i][0] - vals[i][1]
+                    hgh = vals[i][0] + vals[i][1]
+                    if to_filter[i] == 'pres': ands.append(pt_select(cur,'p',[low,hgh],return_and=True))
+                    if to_filter[i] == 'temp': ands.append(pt_select(cur,'t',[low,hgh],return_and=True))
+                elif rads[i] == '%':
+                    low = vals[i][0] - vals[i][1]*vals[i][0]/100
+                    hgh = vals[i][0] + vals[i][1]*vals[i][0]/100
+                    if to_filter[i] == 'pres': ands.append(pt_select(cur,'p',[low,hgh],return_and=True))
+                    if to_filter[i] == 'temp': ands.append(pt_select(cur,'t',[low,hgh],return_and=True))
+            elif dtypes[to_filter[i]] == "VARCHAR":  # rads can only be = or !=
                 ands.append("%s %s '%s'" % (to_filter[i],rads[i],vals[i]))
         arr_ret.append('id')
         q1 = "SELECT %s FROM hacker_noamph.arr WHERE " % (', '.join(arr_ret))
@@ -277,6 +321,7 @@ def create_page(conn: duckdb.DuckDBPyConnection):
 
 def pt_select(cursor,pt,tofit,return_and=True):
     """ get ip or it values 
+
     if return_and, return the condition for sql query; if not, return the ip/it values
     """
     dp = {'p': 0.1, 't': 10}
