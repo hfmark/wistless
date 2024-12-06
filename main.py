@@ -174,11 +174,11 @@ def create_page(conn: duckdb.DuckDBPyConnection):
             except Exception as e:
                 st.error(e)
 
-        #if st.button("download results",key='qb_download'):
-        #    if 'pt_df' in st.session_state.keys():
-        #        st.session_state['pt_df'].to_csv("pt_results.csv",index=False)
-        #        st.toast("query results written to file",icon="🦆")
-        #        st.balloons()
+        @st.cache_data  # might not have any effect bc the df is converted only on button press
+        def convert_df(df):
+            return df.to_csv().encode("utf-8")
+        if 'pt_df' in st.session_state.keys():
+            st.download_button("download results",data=convert_df(st.session_state['pt_df']),file_name='pt_results.csv',mime='text/csv')
 
     with tab_plot:
         if 'pt_df' in st.session_state.keys():
