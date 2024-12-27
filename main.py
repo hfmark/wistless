@@ -135,11 +135,13 @@ def create_page(conn: duckdb.DuckDBPyConnection):
 
         # returns, P/T sliders
         if not pfilt:
-            (p_lo,p_hi) = st.slider('pressure range, GPa',min_value=minP,max_value=maxP,value=(minP,maxP),key='pressure_slider')
+            (p_lo,p_hi) = st.slider('pressure range, GPa',min_value=minP,max_value=maxP,\
+                                    value=(minP,maxP),key='pressure_slider')
         else:
             p_lo, p_hi = minP, maxP
         if not tfilt:
-            (t_lo,t_hi) = st.slider('temperature range, C',min_value=minT,max_value=maxT,value=(minT,maxT),key='temper_slider')
+            (t_lo,t_hi) = st.slider('temperature range, C',min_value=minT,max_value=maxT,\
+                                    value=(minT,maxT),key='temper_slider')
         else:
             t_lo, t_hi = minT, maxT
         to_return  = st.multiselect('fields to return',arr_vars)
@@ -174,25 +176,22 @@ def create_page(conn: duckdb.DuckDBPyConnection):
                     ands.append("%s between %f and %f" % (to_filter[i],vals[i][0],vals[i][1]))
             elif dtypes[to_filter[i]] != "VARCHAR" and to_filter[i] in ['pressure','temperature']:
                 # figure out p_lo and p_hi basically
+                if to_filter[i] == 'pressure': ptflag = 'p'; lolo = p_lo; hihi = p_hi
+                if to_filter[i] == 'temperature': ptflag = 't'; lolo = t_lo; hihi = t_hi
                 if rads[i] in ['<', "<="]:
-                    if to_filter[i] == 'pressure': ands.append(pt_select(cur,'p',[p_lo,vals[i]],return_and=True))
-                    if to_filter[i] == 'temperature': ands.append(pt_select(cur,'t',[t_lo,vals[i]],return_and=True))
+                    ands.append(pt_select(cur,ptflag,[lolo,vals[i]],return_and=True))
                 elif rads[i] in ['>', ">="]:
-                    if to_filter[i] == 'pressure': ands.append(pt_select(cur,'p',[vals[i],p_hi],return_and=True))
-                    if to_filter[i] == 'temperature': ands.append(pt_select(cur,'t',[vals[i],t_hi],return_and=True))
+                    ands.append(pt_select(cur,ptflag,[vals[i],hihi],return_and=True))
                 elif rads[i] == '=':
-                    if to_filter[i] == 'pressure': ands.append(pt_select(cur,'p',[vals[i],],return_and=True))
-                    if to_filter[i] == 'temperature': ands.append(pt_select(cur,'t',[vals[i],],return_and=True))
+                    ands.append(pt_select(cur,ptflag,[vals[i],],return_and=True))
                 elif rads[i] == '+-':
                     low = vals[i][0] - vals[i][1]
                     hgh = vals[i][0] + vals[i][1]
-                    if to_filter[i] == 'pressure': ands.append(pt_select(cur,'p',[low,hgh],return_and=True))
-                    if to_filter[i] == 'temperature': ands.append(pt_select(cur,'t',[low,hgh],return_and=True))
+                    ands.append(pt_select(cur,ptflag,[low,hgh],return_and=True))
                 elif rads[i] == '%':
                     low = vals[i][0] - vals[i][1]*vals[i][0]/100
                     hgh = vals[i][0] + vals[i][1]*vals[i][0]/100
-                    if to_filter[i] == 'pressure': ands.append(pt_select(cur,'p',[low,hgh],return_and=True))
-                    if to_filter[i] == 'temperature': ands.append(pt_select(cur,'t',[low,hgh],return_and=True))
+                    ands.append(pt_select(cur,ptflag,[low,hgh],return_and=True))
             elif dtypes[to_filter[i]] == "VARCHAR":  # rads can only be = or !=
                 ands.append("%s %s '%s'" % (to_filter[i],rads[i],vals[i]))
         arr_ret.append('id')
