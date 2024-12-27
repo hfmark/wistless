@@ -74,10 +74,11 @@ def create_page(conn: duckdb.DuckDBPyConnection):
 
     skip_these = ['ip','id','it','meh']  # columns that should not be returnable or filterable
     # (P and T are dealt with separately, don't need ip or it directly, and id is for internal use)
+    # TODO mdb_name probably not meaningful for most people, could return but not filter?
     arr_vars = [e[0] for e in cur.execute("describe hacker_noamph.arr").fetchall() if e[0] not in skip_these]
     dtypes = dict(conn.sql("select column_name, data_type from information_schema.columns").fetchall())
 
-    minP,maxP,minT,maxT = conn.sql("SELECT min(pres), max(pres), min(temp), max(temp) FROM hacker_noamph.pt").fetchall()[0]
+    minP,maxP,minT,maxT = conn.sql("SELECT min(pressure), max(pressure), min(temperature), max(temperature) FROM hacker_noamph.pt").fetchall()[0]
 
     tab_build, tab_plot, tab_calc, tab_doc = st.tabs(['query builder','data viz','(mis)fitting','documentation'])
 
@@ -96,7 +97,7 @@ def create_page(conn: duckdb.DuckDBPyConnection):
         pfilt = False; tfilt = False
         for ic,ccc in enumerate(inputs):
             ccc[0].write(to_filter[ic])  # the thing we are filtering on
-            if dtypes[to_filter[ic]] != "VARCHAR" and to_filter[ic] not in ['pres','temp']:  # numeric data types
+            if dtypes[to_filter[ic]] != "VARCHAR" and to_filter[ic] not in ['pressure','temperature']:  # numeric data types
                 rad = ccc[1].selectbox('condition type',key='radio_%i' % ic,options=['+-','%','<',">",'<=','>=','=','!=','in'])
                 # get the numeric range so we don't set anything weird
                 minV,maxV = conn.sql("SELECT min(%s), max(%s) FROM hacker_noamph.arr WHERE %s >= 0" % (to_filter[ic],to_filter[ic],to_filter[ic])).fetchall()[0]
@@ -109,9 +110,9 @@ def create_page(conn: duckdb.DuckDBPyConnection):
                 else:  # simple conditional
                     val = ccc[2].number_input('value',key='value_%i' % ic,min_value=minV,max_value=maxV)
 
-            if dtypes[to_filter[ic]] != "VARCHAR" and to_filter[ic] in ['pres','temp']:  # pres or temp
-                if to_filter[ic] == 'pres': pfilt = True
-                if to_filter[ic] == 'temp': tfilt = True
+            if dtypes[to_filter[ic]] != "VARCHAR" and to_filter[ic] in ['pressure','temperature']:  # pres or temp
+                if to_filter[ic] == 'pressure': pfilt = True
+                if to_filter[ic] == 'temperature': tfilt = True
                 rad = ccc[1].selectbox('condition type',key='radio_%i' % ic,options=['+-','%','<',">",'<=','>=','='])  # no "in" or "!=" for this
                 minV,maxV = conn.sql("SELECT min(%s), max(%s) FROM hacker_noamph.arr WHERE %s >= 0" % (to_filter[ic],to_filter[ic],to_filter[ic])).fetchall()[0]
                 if rad in ['+-','%']:
@@ -155,7 +156,7 @@ def create_page(conn: duckdb.DuckDBPyConnection):
 
         # make ands from the filter lists
         for i in range(len(to_filter)):
-            if dtypes[to_filter[i]] != "VARCHAR" and to_filter[i] not in ['pres','temp']:
+            if dtypes[to_filter[i]] != "VARCHAR" and to_filter[i] not in ['pressure','temperature']:
                 if rads[i] in ['<',">",'<=','>=','=','!=']:
                     ands.append("%s %s %.2f" % (to_filter[i],rads[i].lstrip('\\'),vals[i]))
                     if rads[i] in ['<','<=']:
@@ -170,27 +171,27 @@ def create_page(conn: duckdb.DuckDBPyConnection):
                     ands.append("%s between %f and %f" % (to_filter[i],low,hgh))
                 elif rads[i] == 'in':  # not an option for strings, and it's slider only right now
                     ands.append("%s between %f and %f" % (to_filter[i],vals[i][0],vals[i][1]))
-            elif dtypes[to_filter[i]] != "VARCHAR" and to_filter[i] in ['pres','temp']:
+            elif dtypes[to_filter[i]] != "VARCHAR" and to_filter[i] in ['pressure','temperature']:
                 # figure out p_lo and p_hi basically
                 if rads[i] in ['<', "<="]:
-                    if to_filter[i] == 'pres': ands.append(pt_select(cur,'p',[p_lo,vals[i]],return_and=True))
-                    if to_filter[i] == 'temp': ands.append(pt_select(cur,'t',[t_lo,vals[i]],return_and=True))
+                    if to_filter[i] == 'pressure': ands.append(pt_select(cur,'p',[p_lo,vals[i]],return_and=True))
+                    if to_filter[i] == 'temperature': ands.append(pt_select(cur,'t',[t_lo,vals[i]],return_and=True))
                 elif rads[i] in ['>', ">="]:
-                    if to_filter[i] == 'pres': ands.append(pt_select(cur,'p',[vals[i],p_hi],return_and=True))
-                    if to_filter[i] == 'temp': ands.append(pt_select(cur,'t',[vals[i],t_hi],return_and=True))
+                    if to_filter[i] == 'pressure': ands.append(pt_select(cur,'p',[vals[i],p_hi],return_and=True))
+                    if to_filter[i] == 'temperature': ands.append(pt_select(cur,'t',[vals[i],t_hi],return_and=True))
                 elif rads[i] == '=':
-                    if to_filter[i] == 'pres': ands.append(pt_select(cur,'p',[vals[i],],return_and=True))
-                    if to_filter[i] == 'temp': ands.append(pt_select(cur,'t',[vals[i],],return_and=True))
+                    if to_filter[i] == 'pressure': ands.append(pt_select(cur,'p',[vals[i],],return_and=True))
+                    if to_filter[i] == 'temperature': ands.append(pt_select(cur,'t',[vals[i],],return_and=True))
                 elif rads[i] == '+-':
                     low = vals[i][0] - vals[i][1]
                     hgh = vals[i][0] + vals[i][1]
-                    if to_filter[i] == 'pres': ands.append(pt_select(cur,'p',[low,hgh],return_and=True))
-                    if to_filter[i] == 'temp': ands.append(pt_select(cur,'t',[low,hgh],return_and=True))
+                    if to_filter[i] == 'pressure': ands.append(pt_select(cur,'p',[low,hgh],return_and=True))
+                    if to_filter[i] == 'temperature': ands.append(pt_select(cur,'t',[low,hgh],return_and=True))
                 elif rads[i] == '%':
                     low = vals[i][0] - vals[i][1]*vals[i][0]/100
                     hgh = vals[i][0] + vals[i][1]*vals[i][0]/100
-                    if to_filter[i] == 'pres': ands.append(pt_select(cur,'p',[low,hgh],return_and=True))
-                    if to_filter[i] == 'temp': ands.append(pt_select(cur,'t',[low,hgh],return_and=True))
+                    if to_filter[i] == 'pressure': ands.append(pt_select(cur,'p',[low,hgh],return_and=True))
+                    if to_filter[i] == 'temperature': ands.append(pt_select(cur,'t',[low,hgh],return_and=True))
             elif dtypes[to_filter[i]] == "VARCHAR":  # rads can only be = or !=
                 ands.append("%s %s '%s'" % (to_filter[i],rads[i],vals[i]))
         arr_ret.append('id')
@@ -237,15 +238,16 @@ def create_page(conn: duckdb.DuckDBPyConnection):
 
         with p_hist:
             hxax = st.selectbox("histogram quantity",avail_cols_num)  # no text hist, they don't work
+            nbins = st.select_slider("max number of bins?",options=np.arange(10,31))
             if st.button("make histogram"):
-                st.altair_chart(alt.Chart(st.session_state['pt_df']).mark_bar().encode(alt.X(hxax,bin=True),y='count()',))
+                st.altair_chart(alt.Chart(st.session_state['pt_df']).mark_bar().encode(alt.X(hxax).bin(maxbins=nbins),y='count()',))
 
         with p_heatmap:
-            if 'pres' in avail_cols and 'temp' in avail_cols:
+            if 'pressure' in avail_cols and 'temperature' in avail_cols:
                 if st.button("plot P/T heatmap"):
-                    st.altair_chart(alt.Chart(st.session_state['pt_df']).mark_rect().encode(alt.X('pres:Q').bin(),alt.Y('temp:Q').bin(),alt.Color('count():Q').scale(scheme='greenblue')))
+                    st.altair_chart(alt.Chart(st.session_state['pt_df']).mark_rect().encode(alt.X('pressure:Q').bin(),alt.Y('temperature:Q').bin(),alt.Color('count():Q').scale(scheme='greenblue')))
             else:
-                st.write('need pres and temp returned to make this heatmap')
+                st.write('need pressure and temperature returned to make this heatmap')
 
         with p_textpie:
             if len(avail_cols_txt) > 0:
@@ -283,28 +285,28 @@ def create_page(conn: duckdb.DuckDBPyConnection):
 
         # best fit T: gaussian or min misfit  TODO min misfit, callback and columns
         if st.button('calculate best fit T'):
-            if 'pt_df' in st.session_state.keys() and 'temp' in st.session_state['pt_df'].columns:
-                Ts, counts = np.unique(st.session_state['pt_df']['temp'],return_counts=True)
+            if 'pt_df' in st.session_state.keys() and 'temperature' in st.session_state['pt_df'].columns:
+                Ts, counts = np.unique(st.session_state['pt_df']['temperature'],return_counts=True)
                 sum_fits = sum(counts)
                 sum_M2 = sum(counts*Ts**2)
                 best_T = sum(Ts*counts)/sum_fits
                 st.write(best_T)
             else:
-                st.write('run a query that returns temp, and calculate misfit, before fitting T')
+                st.write('run a query that returns temperature, and calculate misfit, before fitting T')
 
         # misfit-weighted mean and stdev for some property
         avail_cols_num = []
-        if 'pt_df' in st.session_state.keys() and 'pres' in st.session_state['pt_df'].columns and 'temp' in st.session_state['pt_df'].columns:
+        if 'pt_df' in st.session_state.keys() and 'pressure' in st.session_state['pt_df'].columns and 'temperature' in st.session_state['pt_df'].columns:
             avail_cols_num = [c for c in st.session_state['pt_df'].columns if st.session_state['pt_df'][c].dtype in [float,int,'float32','float64','int64','int32']]
             c1,c2,c3 = st.columns(3)
             with c1:
                 propfit = st.selectbox('property to fit',avail_cols_num)
             with c2:
-                pfit = st.select_slider('fit pressure',options = np.unique(st.session_state['pt_df']['pres']),format_func=lambda x:'%.2f' % x)
+                pfit = st.select_slider('fit pressure',options = np.unique(st.session_state['pt_df']['pressure']),format_func=lambda x:'%.2f' % x)
             with c3:
-                tfit = st.select_slider('fit temperature',options = np.unique(st.session_state['pt_df']['temp']),format_func=lambda x:'%.2f' % x)
+                tfit = st.select_slider('fit temperature',options = np.unique(st.session_state['pt_df']['temperature']),format_func=lambda x:'%.2f' % x)
             if st.button("fit property"):
-                sel = st.session_state['pt_df'][(st.session_state['pt_df']['pres'] == pfit)&(st.session_state['pt_df']['temp'] == tfit)]
+                sel = st.session_state['pt_df'][(st.session_state['pt_df']['pressure'] == pfit)&(st.session_state['pt_df']['temperature'] == tfit)]
                 if len(sel) > 1 and 'joint_misfit' in sel.columns:
                     mean_val = np.average(sel[propfit],weights=1./sel['joint_misfit'])
                     std_val = np.sqrt(np.cov(sel[propfit], aweights=1./sel['joint_misfit']))
@@ -325,7 +327,7 @@ def pt_select(cursor,pt,tofit,return_and=True):
     if return_and, return the condition for sql query; if not, return the ip/it values
     """
     dp = {'p': 0.1, 't': 10}
-    col = {'p':'pres','t':'temp'}
+    col = {'p':'pressure','t':'temperature'}
     ii = {'p':'ip','t':'it'}
     if not hasattr(tofit,'__len__'):
             tofit = np.atleast_1d(tofit)
@@ -350,4 +352,5 @@ def pt_select(cursor,pt,tofit,return_and=True):
 
 if __name__ == "__main__":
     main()
+
 
