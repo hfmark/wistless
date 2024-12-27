@@ -97,31 +97,32 @@ def create_page(conn: duckdb.DuckDBPyConnection):
         pfilt = False; tfilt = False
         for ic,ccc in enumerate(inputs):
             ccc[0].write(to_filter[ic])  # the thing we are filtering on
-            if dtypes[to_filter[ic]] != "VARCHAR" and to_filter[ic] not in ['pressure','temperature']:  # numeric data types
-                rad = ccc[1].selectbox('condition type',key='radio_%i' % ic,options=['+-','%','<',">",'<=','>=','=','!=','in'])
+            if dtypes[to_filter[ic]] != "VARCHAR":  # numeric data types
+
+                if to_filter[ic] in ['pressure','temperature']:
+                    rad_options = ['+-','%','<',">",'<=','>=','=']
+                    
+                    if to_filter[ic] == 'pressure': pfilt = True
+                    if to_filter[ic] == 'temperature': tfilt = True
+                else:
+                    rad_options = ['+-','%','<',">",'<=','>=','=','!=','in']
+
+                rad = ccc[1].selectbox('condition type',key='radio_%i' % ic,options=rad_options)
+            
                 # get the numeric range so we don't set anything weird
-                minV,maxV = conn.sql("SELECT min(%s), max(%s) FROM hacker_noamph.arr WHERE %s >= 0" % (to_filter[ic],to_filter[ic],to_filter[ic])).fetchall()[0]
+                minV,maxV = conn.sql("SELECT min(%s), max(%s) FROM hacker_noamph.arr WHERE %s >= 0" % \
+                                    (to_filter[ic],to_filter[ic],to_filter[ic])).fetchall()[0]
                 if rad == 'in':  # range slider
                     val = ccc[2].slider('range',min_value=minV,max_value=maxV,value=(minV,maxV))
                 elif rad in ['+-','%']:
                     v0 = ccc[2].number_input('center',key='val0_%i' % ic,min_value=minV,max_value=maxV)
-                    v1 = ccc[2].number_input('range',key='val1_%i' % ic,min_value=0.,max_value=100.,step=0.01)
+                    v1 = ccc[2].number_input('range',key='val1_%i' % ic,\
+                                            min_value=0.,max_value=100.,step=0.01)
                     val = (v0,v1)
                 else:  # simple conditional
                     val = ccc[2].number_input('value',key='value_%i' % ic,min_value=minV,max_value=maxV)
 
-            if dtypes[to_filter[ic]] != "VARCHAR" and to_filter[ic] in ['pressure','temperature']:  # pres or temp
-                if to_filter[ic] == 'pressure': pfilt = True
-                if to_filter[ic] == 'temperature': tfilt = True
-                rad = ccc[1].selectbox('condition type',key='radio_%i' % ic,options=['+-','%','<',">",'<=','>=','='])  # no "in" or "!=" for this
-                minV,maxV = conn.sql("SELECT min(%s), max(%s) FROM hacker_noamph.arr WHERE %s >= 0" % (to_filter[ic],to_filter[ic],to_filter[ic])).fetchall()[0]
-                if rad in ['+-','%']:
-                    v0 = ccc[2].number_input('center',key='val0_%i' % ic,min_value=minV,max_value=maxV)
-                    v1 = ccc[2].number_input('range',key='val1_%i' % ic,min_value=0.,max_value=100.,step=0.01)
-                    val = (v0,v1)
-                else:  # simple conditional
-                    val = ccc[2].number_input('value',key='value_%i' % ic,min_value=minV,max_value=maxV)
-            if dtypes[to_filter[ic]] == "VARCHAR":  # string data types
+            elif dtypes[to_filter[ic]] == "VARCHAR":  # string data types
                 rad = ccc[1].radio('condition type',key='radio_%i' % ic,options=['=','!=']) 
                 val = ccc[2].text_input('string',key='value_%i' % ic)
 
