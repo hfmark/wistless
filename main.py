@@ -5,6 +5,7 @@ import pandas as pd
 import altair as alt
 from pathlib import Path
 import os, sys
+from utils import pt_select, joint_misfit
 
 from streamlit.connections import ExperimentalBaseConnection
 from streamlit.runtime.caching import cache_data
@@ -258,28 +259,19 @@ def create_page(conn: duckdb.DuckDBPyConnection):
     with tab_calc:
         # joint misfit: vp, vs, vpvs only (and = or in a range)
         mis_calc = 'To calculate misfit, filter the database on at least one of: vp, vs, vpvs'
-        if 'filts' in st.session_state.keys() and 'pt_df' in st.session_state.keys() and len(st.session_state['pt_df']) > 0:
-            if 'vp' in st.session_state['filts'] or 'vs' in st.session_state['filts'] or 'vpvs' in st.session_state['filts']:
-                mis_calc = 'misfits calculated:'
-                for i in range(len(st.session_state['rads'])):  # individual misfits
-                    ff = st.session_state['filts'][i]
-                    vv = st.session_state['vals'][i]
-                    rr = st.session_state['rads'][i]
-                    if ff in ['vp','vs','vpvs'] and rr in ['in','=','+-','%'] and ff in st.session_state['pt_df'].columns:
-                        if rr == 'in':
-                            fitval = vv[0] + (vv[1] - vv[0])/2
-                        else:
-                            fitval = vv[0]
-                        st.session_state['pt_df']['misfit_%s' % ff] = (st.session_state['pt_df'][ff] - fitval)/fitval
-                        mis_calc += '%s, ' % ff
-
-                new_joint = np.zeros(len(st.session_state['pt_df']))
-                for col in st.session_state['pt_df'].columns:
-                    if col.startswith('misfit_'):
-                        new_joint += st.session_state['pt_df'][col]**2
-                st.session_state['pt_df'].loc[:,'joint_misfit'] = np.sqrt(new_joint)
-                mis_calc += 'joint misfit'
+        if 'filts' in st.session_state.keys() and 'pt_df' in st.session_state.keys() and \
+                len(st.session_state['pt_df']) > 0:
+            if 'vp' in st.session_state['filts'] or 'vs' in st.session_state['filts'] or \
+                    'vpvs' in st.session_state['filts']:
+                st.session_state['pt_df'] = joint_misfit(st.session_state['pt_df'],\
+                                            st.session_state['filts'],st.session_state['vals'],\
+                                            st.session_state['rads'])
+                mis_calc = 'misfits calculated: '
+                mis_calc += ', '.join([e.lstrip('misfit_') for e in st.session_state['pt_df'].columns\
+                                         if e.startswith('misfit')])
+                mis_calc += ', joint' # there will be one even if it's just one column and itself
         st.write(mis_calc)
+
 
         # best fit T: gaussian or min misfit  TODO min misfit, callback and columns
         if st.button('calculate best fit T'):
@@ -317,35 +309,6 @@ def create_page(conn: duckdb.DuckDBPyConnection):
             return Path(mdfile).read_text()
         lotsofdocs = read_markdown_file('wistless-docs.md')
         st.markdown(lotsofdocs, unsafe_allow_html=True)
-
-
-def pt_select(cursor,pt,tofit,return_and=True):
-    """ get ip or it values 
-
-    if return_and, return the condition for sql query; if not, return the ip/it values
-    """
-    dp = {'p': 0.1, 't': 10}
-    col = {'p':'pressure','t':'temperature'}
-    ii = {'p':'ip','t':'it'}
-    if not hasattr(tofit,'__len__'):
-            tofit = np.atleast_1d(tofit)
-    if len(tofit) == 2 and tofit[0] == tofit[1]:
-        tofit = [tofit[0],]
-    if len(tofit) == 1:
-        low = tofit[0] - dp[pt]; hgh = tofit[0] + dp[pt]
-        qp = "SELECT id FROM hacker_noamph.pt WHERE %s BETWEEN ? AND ? ORDER BY abs(?-%s) LIMIT 1" % (col[pt],col[pt])
-        ipt = cursor.execute(qp,(low,hgh,tofit[0])).fetchall()[0][0]
-        ands = "%s = %i " % (ii[pt],ipt)
-    elif len(tofit) == 2:
-        ands = "%s IN (SELECT id FROM hacker_noamph.pt WHERE %s BETWEEN %f AND %f)" % (ii[pt],col[pt],tofit[0],tofit[1])
-        qp = "SELECT id FROM hacker_noamph.pt WHERE %s BETWEEN ? AND ?" % (col[pt])
-        _ = cursor.execute(qp,(tofit[0],tofit[1]))
-        ipt = np.array([e[0] for e in cursor.fetchall()])
-    if return_and:
-        return ands
-    else:
-        return ipt
-
 
 
 if __name__ == "__main__":
