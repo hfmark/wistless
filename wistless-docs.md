@@ -35,9 +35,9 @@ After running a query, users can download the results as a csv file and analyze/
 ## Fitting and other calculations
 The **(mis)fitting** tab provides some basic functions for calculating misfit, and fitting returned quantities.
 
-The 'calculate (joint) misfit' button calculates the misfit for Vp, Vs, and/or Vp/Vs for the results. This calculation only works if at least one of Vp, Vs, and Vp/Vs was used for a filter condition; and if that quantity is included in the returned results. The joint misfit is the root square sum of all of the Vp, Vs, and/or Vp/Vs misfits.
+If one or more of Vp, Vs, and Vp/Vs is used for a filter condition and returned, misfit and joint misfit will automatically be calculated for the resuls. The joint misfit is the root square sum of all of the Vp, Vs, and/or Vp/Vs misfits.
 
-The 'calculate best fit T' button calculates a best-fitting temperature from the results provided temperature has been included in the returned results.
+The 'calculate best fit T' button calculates a best-fitting temperature provided temperature has been included in the returned results.
 
 If pressure and temperature are both included in the returned results, and the joint misfit has been calculated, an option to calculate the misfit-weighted mean and standard deviation of other returned quantities will appear. To do this, select which returned (numeric) property you want to fit, and select the P and T conditions at which to fit. The sliders for P and T will only assume discrete values that are present in the returned results. If there are enough returned points at the selected (P, T) point, pressing the 'fit property' button will print the misfit-weighted mean, mifit-weighted standard deviation, and number of points included in the fitting calculation.
 
