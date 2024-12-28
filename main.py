@@ -257,10 +257,10 @@ def create_page(conn: duckdb.DuckDBPyConnection):
 
     with tab_calc:
         # joint misfit: vp, vs, vpvs only (and = or in a range)
-        if st.button("calculate (joint) misfit"):
-            mis_calc = 'calculated '
-            # check if vp, vs, or vpvs is in the filters with the right kind of condition
-            if 'filts' in st.session_state.keys() and 'pt_df' in st.session_state.keys():
+        mis_calc = 'To calculate misfit, filter the database on at least one of: vp, vs, vpvs'
+        if 'filts' in st.session_state.keys() and 'pt_df' in st.session_state.keys() and len(st.session_state['pt_df']) > 0:
+            if 'vp' in st.session_state['filts'] or 'vs' in st.session_state['filts'] or 'vpvs' in st.session_state['filts']:
+                mis_calc = 'misfits calculated:'
                 for i in range(len(st.session_state['rads'])):  # individual misfits
                     ff = st.session_state['filts'][i]
                     vv = st.session_state['vals'][i]
@@ -271,7 +271,7 @@ def create_page(conn: duckdb.DuckDBPyConnection):
                         else:
                             fitval = vv[0]
                         st.session_state['pt_df']['misfit_%s' % ff] = (st.session_state['pt_df'][ff] - fitval)/fitval
-                        mis_calc += 'misfit_%s, ' % ff
+                        mis_calc += '%s, ' % ff
 
                 new_joint = np.zeros(len(st.session_state['pt_df']))
                 for col in st.session_state['pt_df'].columns:
@@ -279,9 +279,7 @@ def create_page(conn: duckdb.DuckDBPyConnection):
                         new_joint += st.session_state['pt_df'][col]**2
                 st.session_state['pt_df'].loc[:,'joint_misfit'] = np.sqrt(new_joint)
                 mis_calc += 'joint misfit'
-                st.write(mis_calc)
-            else:
-                st.write('no misfit calculated; filter on vp, vs, and/or vpvs first')
+        st.write(mis_calc)
 
         # best fit T: gaussian or min misfit  TODO min misfit, callback and columns
         if st.button('calculate best fit T'):
@@ -296,7 +294,7 @@ def create_page(conn: duckdb.DuckDBPyConnection):
 
         # misfit-weighted mean and stdev for some property
         avail_cols_num = []
-        if 'pt_df' in st.session_state.keys() and 'pressure' in st.session_state['pt_df'].columns and 'temperature' in st.session_state['pt_df'].columns:
+        if 'pt_df' in st.session_state.keys() and 'pressure' in st.session_state['pt_df'].columns and 'temperature' in st.session_state['pt_df'].columns and len(st.session_state['pt_df']) > 0:
             avail_cols_num = [c for c in st.session_state['pt_df'].columns if st.session_state['pt_df'][c].dtype in [float,int,'float32','float64','int64','int32']]
             c1,c2,c3 = st.columns(3)
             with c1:
