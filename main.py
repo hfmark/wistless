@@ -272,21 +272,24 @@ def create_page(conn: duckdb.DuckDBPyConnection):
                 mis_calc += ', joint' # there will be one even if it's just one column and itself
         st.write(mis_calc)
 
-        # best fit T: gaussian or min misfit  TODO min misfit, callback and columns
+        # best fit T: gaussian or min misfit
         bfT_rad = st.radio('Type of T fitting: ', options=['gaussian','joint misfit'])
         if st.button('calculate best fit T'):
-            if bfT_rad == 'gaussian':
-                if 'pt_df' in st.session_state.keys() and 'temperature' in st.session_state['pt_df'].columns:
-                    Ts, counts = np.unique(st.session_state['pt_df']['temperature'],return_counts=True)
-                    sum_fits = sum(counts)
-                    sum_M2 = sum(counts*Ts**2)
-                    best_T = sum(Ts*counts)/sum_fits
-                    st.write(best_T)
+            if 'pt_df' in st.session_state.keys() and 'temperature' in st.session_state['pt_df'].columns:
+                if bfT_rad == 'gaussian':
+                        Ts, counts = np.unique(st.session_state['pt_df']['temperature'],return_counts=True)
+                        sum_fits = sum(counts)
+                        sum_M2 = sum(counts*Ts**2)
+                        best_T = sum(Ts*counts)/sum_fits
+                        st.write(best_T)
                 else:
-                    st.write('run a query that returns temperature, and calculate misfit, before fitting T')
+                    if 'joint_misfit' in st.session_state['pt_df'].columns:
+                        best_T = st.session_state['pt_df'].iloc[st.session_state['pt_df']['joint_misfit'].argmin()]['temperature']
+                        st.write(best_T)
+                    else:
+                        st.write('joint misfit required for this calculation')
             else:
-                st.write('joint misfit T fitting not yet implemented')
-        
+                st.write('run a query that returns temperature, and calculate misfit, before fitting T')
 
         # misfit-weighted mean and stdev for some property
         avail_cols_num = []
