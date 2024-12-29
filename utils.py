@@ -43,7 +43,7 @@ def joint_misfit(df,filts,vals,rads):
     """
 
     for i in range(len(rads)):
-        if filts[i] in ['vp','vs','vpvs'] and rads[i] in ['in','=','+-','%'] and len(df) > 0:
+        if filts[i] in ['vp','vs','vpvs'] and rads[i] in ['in','=','+-','%'] and len(df) > 0 and filts[i] in df.columns:
             if rads[i] == 'in':
                 fitval = vals[i][0] + (vals[i][1] - vals[i][0])/2
             else:
