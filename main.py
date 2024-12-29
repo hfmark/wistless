@@ -272,37 +272,49 @@ def create_page(conn: duckdb.DuckDBPyConnection):
                 mis_calc += ', joint' # there will be one even if it's just one column and itself
         st.write(mis_calc)
 
-
         # best fit T: gaussian or min misfit  TODO min misfit, callback and columns
+        bfT_rad = st.radio('Type of T fitting: ', options=['gaussian','joint misfit'])
         if st.button('calculate best fit T'):
-            if 'pt_df' in st.session_state.keys() and 'temperature' in st.session_state['pt_df'].columns:
-                Ts, counts = np.unique(st.session_state['pt_df']['temperature'],return_counts=True)
-                sum_fits = sum(counts)
-                sum_M2 = sum(counts*Ts**2)
-                best_T = sum(Ts*counts)/sum_fits
-                st.write(best_T)
+            if bfT_rad == 'gaussian':
+                if 'pt_df' in st.session_state.keys() and 'temperature' in st.session_state['pt_df'].columns:
+                    Ts, counts = np.unique(st.session_state['pt_df']['temperature'],return_counts=True)
+                    sum_fits = sum(counts)
+                    sum_M2 = sum(counts*Ts**2)
+                    best_T = sum(Ts*counts)/sum_fits
+                    st.write(best_T)
+                else:
+                    st.write('run a query that returns temperature, and calculate misfit, before fitting T')
             else:
-                st.write('run a query that returns temperature, and calculate misfit, before fitting T')
+                st.write('joint misfit T fitting not yet implemented')
+        
 
         # misfit-weighted mean and stdev for some property
         avail_cols_num = []
         if 'pt_df' in st.session_state.keys() and 'pressure' in st.session_state['pt_df'].columns and 'temperature' in st.session_state['pt_df'].columns and len(st.session_state['pt_df']) > 0:
             avail_cols_num = [c for c in st.session_state['pt_df'].columns if st.session_state['pt_df'][c].dtype in [float,int,'float32','float64','int64','int32']]
             c1,c2,c3 = st.columns(3)
+            pr_unique = np.unique(st.session_state['pt_df']['pressure'],return_counts=True)
+            tm_unique = np.unique(st.session_state['pt_df']['temperature'],return_counts=True)
             with c1:
                 propfit = st.selectbox('property to fit',avail_cols_num)
             with c2:
-                pfit = st.select_slider('fit pressure',options = np.unique(st.session_state['pt_df']['pressure']),format_func=lambda x:'%.2f' % x)
+                pr_ops = ['%.2f (%i)' % (pr_unique[0][i], pr_unique[1][i]) for i in range(len(pr_unique[0]))]
+                pfit = st.select_slider('fit P: value (#points)',options = pr_ops)
             with c3:
-                tfit = st.select_slider('fit temperature',options = np.unique(st.session_state['pt_df']['temperature']),format_func=lambda x:'%.2f' % x)
+                tm_ops = ['%.2f (%i)' % (tm_unique[0][i], tm_unique[1][i]) for i in range(len(tm_unique[0]))]
+                tfit = st.select_slider('fit T: value (#points)',options = tm_ops)
             if st.button("fit property"):
-                sel = st.session_state['pt_df'][(st.session_state['pt_df']['pressure'] == pfit)&(st.session_state['pt_df']['temperature'] == tfit)]
+                # recover the closest pressure/temperature from the selectors
+                pfit_actual = pr_unique[0][np.argmin(abs(pr_unique[0] - float(pfit.split('(')[0])))]
+                tfit_actual = tm_unique[0][np.argmin(abs(tm_unique[0] - float(tfit.split('(')[0])))]
+                sel = st.session_state['pt_df'][(st.session_state['pt_df']['pressure'] == pfit_actual)&(st.session_state['pt_df']['temperature'] == tfit_actual)]
                 if len(sel) > 1 and 'joint_misfit' in sel.columns:
                     mean_val = np.average(sel[propfit],weights=1./sel['joint_misfit'])
                     std_val = np.sqrt(np.cov(sel[propfit], aweights=1./sel['joint_misfit']))
-                    st.write(mean_val,std_val,len(sel))
+                    st.write('mean: %.3f, std: %.3f, #points: %i' % (mean_val,std_val,len(sel)))
                 else:
                     st.write('not enough samples in range to fit')
+
 
     with tab_doc:
         def read_markdown_file(mdfile):
