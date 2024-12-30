@@ -83,6 +83,14 @@ def create_page(conn: duckdb.DuckDBPyConnection):
 
     tab_build, tab_plot, tab_calc, tab_doc = st.tabs(['query builder','data viz','(mis)fitting','documentation'])
 
+    # set up some text in the session state to write and update in spots
+    if 'tx_bestT' not in st.session_state:
+        st.session_state['tx_bestT'] = "best fit T:"
+    if 'tx_fitted' not in st.session_state:
+        st.session_state['tx_fitted'] = "fitted mean [], stdev [], #points []"
+    if 'tx_nret' not in st.session_state:
+        st.session_state['tx_nret'] = "points returned: "
+
 ########################################################################
     # query builder
     with tab_build:
@@ -205,20 +213,26 @@ def create_page(conn: duckdb.DuckDBPyConnection):
         with st.expander("view the query"):
             st.write(q1)
 
+        def runquery(cur,q1):
+            cur.execute(q1)
+            df = cur.fetch_df()
+            return df
+
         if st.button("run query"):
             try:
-                cur.execute(q1)
-                df = cur.fetch_df()
+                df = runquery(cur,q1)
                 st.session_state['pt_df'] = df  # save for later! can in theory then plot?
                 st.toast("%i query results saved to session" % len(df),icon="🦆")
+                st.session_state["tx_nret"] = "points returned: %i" % len(df)
             except Exception as e:
                 st.error(e)
+        st.write(st.session_state["tx_nret"])
 
-        @st.cache_data  # might not have any effect bc the df is converted only on button press
         def convert_df(df):
             return df.to_csv().encode("utf-8")
-        if 'pt_df' in st.session_state.keys():
-            st.download_button("download results",data=convert_df(st.session_state['pt_df']),file_name='pt_results.csv',mime='text/csv')
+        if 'pt_df' in st.session_state.keys():  # button only visible when download is possible
+            st.download_button("download results",data=convert_df(st.session_state['pt_df']),\
+                                file_name='pt_results.csv',mime='text/csv')
 
     with tab_plot:
         if 'pt_df' in st.session_state.keys():
@@ -281,20 +295,21 @@ def create_page(conn: duckdb.DuckDBPyConnection):
                         sum_fits = sum(counts)
                         sum_M2 = sum(counts*Ts**2)
                         best_T = sum(Ts*counts)/sum_fits
-                        st.write(best_T)
+                        st.session_state["tx_bestT"] = "best fit T: %.2f" % best_T
                 else:
                     if 'joint_misfit' in st.session_state['pt_df'].columns:
                         best_T = st.session_state['pt_df'].iloc[st.session_state['pt_df']['joint_misfit'].argmin()]['temperature']
-                        st.write(best_T)
+                        st.session_state["tx_bestT"] = "best fit T: %.2f" % best_T
                     else:
                         st.write('joint misfit required for this calculation')
             else:
                 st.write('run a query that returns temperature, and calculate misfit, before fitting T')
+        st.write(st.session_state["tx_bestT"])
 
         # misfit-weighted mean and stdev for some property
         avail_cols_num = []
         if 'pt_df' in st.session_state.keys() and 'pressure' in st.session_state['pt_df'].columns and 'temperature' in st.session_state['pt_df'].columns and len(st.session_state['pt_df']) > 0:
-            avail_cols_num = [c for c in st.session_state['pt_df'].columns if st.session_state['pt_df'][c].dtype in [float,int,'float32','float64','int64','int32']]
+            avail_cols_num = [c for c in st.session_state['pt_df'].columns if st.session_state['pt_df'][c].dtype in [float,int,'float32','float64','int64','int32'] and not c.startswith('misfit') and not c.endswith('misfit') and c not in ['id','temperature','pressure']]
             c1,c2,c3 = st.columns(3)
             pr_unique = np.unique(st.session_state['pt_df']['pressure'],return_counts=True)
             tm_unique = np.unique(st.session_state['pt_df']['temperature'],return_counts=True)
@@ -318,12 +333,14 @@ def create_page(conn: duckdb.DuckDBPyConnection):
                 else:
                     st.write('not enough samples in range to fit')
 
-
     with tab_doc:
         def read_markdown_file(mdfile):
             return Path(mdfile).read_text()
         lotsofdocs = read_markdown_file('wistless-docs.md')
         st.markdown(lotsofdocs, unsafe_allow_html=True)
+
+
+
 
 
 if __name__ == "__main__":
