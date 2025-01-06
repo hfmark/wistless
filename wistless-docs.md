@@ -1,9 +1,9 @@
 # Basic usage of wistless
-`wistless` is an interface to a database of perple\_X calculations for rock samples where users can filter the database and visualize different sets of parameters.
+`wistless` is an interface to a database of perple\_X calculations for rock samples. `wistless` allows users to filter the database and visualize different sets of parameters.
 
-Users start by setting up filter conditions. Conditions can be set up based on bulk composition of samples, rock type, state variables like P and T, and/or calculated quantities like seismic velocities. Multiple filter conditions can be applied simultaneously. 
+Users build a database query by setting up filter conditions. Conditions can be set up based on bulk composition of samples, rock type, state variables like P and T, and/or calculated quantities like seismic velocities. Multiple filter conditions can be applied simultaneously. A list of fields to return is also specified, and that list may be different from the list of fields used for filtering.
 
-When the query is run, `wistless` filters its database and returns user-specified quantities for samples at specific points in parameter space which meet all of the conditions.
+When a query is run, `wistless` filters its database and returns the specified fields for samples at points in parameter space which meet all of the filtering conditions.
 
 ***
 
