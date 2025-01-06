@@ -5,7 +5,7 @@ import pandas as pd
 import altair as alt
 from pathlib import Path
 import os, sys
-from utils import pt_select, joint_misfit, gaussian_best_T
+from utils import *
 
 from streamlit.connections import ExperimentalBaseConnection
 from streamlit.runtime.caching import cache_data
@@ -213,11 +213,6 @@ def create_page(conn: duckdb.DuckDBPyConnection):
         with st.expander("view the query"):
             st.write(q1)
 
-        def runquery(cur,q1):
-            cur.execute(q1)
-            df = cur.fetch_df()
-            return df
-
         if st.button("run query"):
             try:
                 df = runquery(cur,q1)
@@ -228,8 +223,6 @@ def create_page(conn: duckdb.DuckDBPyConnection):
                 st.error(e)
         st.write(st.session_state["tx_nret"])
 
-        def convert_df(df):
-            return df.to_csv().encode("utf-8")
         if 'pt_df' in st.session_state.keys():  # button only visible when download is possible
             st.download_button("download results",data=convert_df(st.session_state['pt_df']),\
                                 file_name='pt_results.csv',mime='text/csv')
@@ -332,8 +325,6 @@ def create_page(conn: duckdb.DuckDBPyConnection):
                 st.write(st.session_state['tx_fitted'])
 
     with tab_doc:
-        def read_markdown_file(mdfile):
-            return Path(mdfile).read_text()
         lotsofdocs = read_markdown_file('wistless-docs.md')
         st.markdown(lotsofdocs, unsafe_allow_html=True)
 

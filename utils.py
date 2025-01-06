@@ -67,3 +67,15 @@ def gaussian_best_T(df):
     sum_M2 = sum(counts*Ts**2)
     best_T = sum(Ts*counts)/sum_fits
     return best_T
+
+def runquery(cur,q1):
+    cur.execute(q1)
+    df = cur.fetch_df()
+    return df
+
+def convert_df(df):
+    return df.to_csv().encode("utf-8")
+
+def read_markdown_file(mdfile):
+    return Path(mdfile).read_text()
+
