@@ -57,3 +57,13 @@ def joint_misfit(df,filts,vals,rads):
             joint_misfit += df[col]**2
     df['joint_misfit'] = np.sqrt(joint_misfit)
     return df
+
+def gaussian_best_T(df):
+    """ Gaussian best fit temperature from a set of points
+    """
+
+    Ts, counts = np.unique(df['temperature'],return_counts=True)
+    sum_fits = sum(counts)
+    sum_M2 = sum(counts*Ts**2)
+    best_T = sum(Ts*counts)/sum_fits
+    return best_T

@@ -5,7 +5,7 @@ import pandas as pd
 import altair as alt
 from pathlib import Path
 import os, sys
-from utils import pt_select, joint_misfit
+from utils import pt_select, joint_misfit, gaussian_best_T
 
 from streamlit.connections import ExperimentalBaseConnection
 from streamlit.runtime.caching import cache_data
@@ -291,19 +291,16 @@ def create_page(conn: duckdb.DuckDBPyConnection):
         if st.button('calculate best fit T'):
             if 'pt_df' in st.session_state.keys() and 'temperature' in st.session_state['pt_df'].columns:
                 if bfT_rad == 'gaussian':
-                        Ts, counts = np.unique(st.session_state['pt_df']['temperature'],return_counts=True)
-                        sum_fits = sum(counts)
-                        sum_M2 = sum(counts*Ts**2)
-                        best_T = sum(Ts*counts)/sum_fits
+                        best_T = gaussian_best_T(st.session_state['pt_df'])
                         st.session_state["tx_bestT"] = "best fit T: %.2f" % best_T
                 else:
                     if 'joint_misfit' in st.session_state['pt_df'].columns:
                         best_T = st.session_state['pt_df'].iloc[st.session_state['pt_df']['joint_misfit'].argmin()]['temperature']
                         st.session_state["tx_bestT"] = "best fit T: %.2f" % best_T
                     else:
-                        st.write('joint misfit required for this calculation')
+                        st.toast('joint misfit required for this calculation')
             else:
-                st.write('run a query that returns temperature, and calculate misfit, before fitting T')
+                st.toast('run a query that returns temperature, and calculate misfit, before fitting T')
         st.write(st.session_state["tx_bestT"])
 
         # misfit-weighted mean and stdev for some property
