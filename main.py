@@ -326,9 +326,10 @@ def create_page(conn: duckdb.DuckDBPyConnection):
                 if len(sel) > 1 and 'joint_misfit' in sel.columns:
                     mean_val = np.average(sel[propfit],weights=1./sel['joint_misfit'])
                     std_val = np.sqrt(np.cov(sel[propfit], aweights=1./sel['joint_misfit']))
-                    st.write('mean: %.3f, std: %.3f, #points: %i' % (mean_val,std_val,len(sel)))
+                    st.session_state['tx_fitted'] = 'mean: %.3f, std: %.3f, #points: %i' % (mean_val,std_val,len(sel))
                 else:
-                    st.write('not enough samples in range to fit')
+                    st.toast('not enough samples in range to fit')
+                st.write(st.session_state['tx_fitted'])
 
     with tab_doc:
         def read_markdown_file(mdfile):
