@@ -80,3 +80,53 @@ def read_markdown_file(mdfile):
     return Path(mdfile).read_text()
 
 
+def construct_query_new(cur,to_filter,rads,vals,ret,dtypes,ptLH):
+    """ build and-ed query to return certain fields
+    structured so it works with the streamlit gui for inputs
+    """
+    p_lo,p_hi,t_lo,t_hi = ptLH
+    ands = []
+    for i in range(len(to_filter)):
+        if dtypes[to_filter[i]] != "VARCHAR" and to_filter[i] not in ['pressure','temperature']:
+            if rads[i] in ['<',">",'<=','>=','=','!=']:
+                ands.append("%s %s %.2f" % (to_filter[i],rads[i].lstrip('\\'),vals[i]))
+                if rads[i] in ['<','<=']:
+                    ands.append("%s %s 0" % (to_filter[i],r'>='))  # screen out -999s that are nulls
+            elif rads[i] == '+-':
+                low = vals[i][0] - vals[i][1]
+                hgh = vals[i][0] + vals[i][1]
+                ands.append("%s between %f and %f" % (to_filter[i],low,hgh))
+            elif rads[i] == '%':
+                low = vals[i][0] - vals[i][1]*vals[i][0]/100
+                hgh = vals[i][0] + vals[i][1]*vals[i][0]/100
+                ands.append("%s between %f and %f" % (to_filter[i],low,hgh))
+            elif rads[i] == 'in':  # not an option for strings, and it's slider only right now
+                ands.append("%s between %f and %f" % (to_filter[i],vals[i][0],vals[i][1]))
+        elif dtypes[to_filter[i]] != "VARCHAR" and to_filter[i] in ['pressure','temperature']:
+            # figure out p_lo and p_hi basically
+            if to_filter[i] == 'pressure': ptflag = 'p'; lolo = p_lo; hihi = p_hi
+            if to_filter[i] == 'temperature': ptflag = 't'; lolo = t_lo; hihi = t_hi
+            if rads[i] in ['<', "<="]:
+                ands.append(pt_select(cur,ptflag,[lolo,vals[i]],return_and=True))
+            elif rads[i] in ['>', ">="]:
+                ands.append(pt_select(cur,ptflag,[vals[i],hihi],return_and=True))
+            elif rads[i] == '=':
+                ands.append(pt_select(cur,ptflag,[vals[i],],return_and=True))
+            elif rads[i] == '+-':
+                low = vals[i][0] - vals[i][1]
+                hgh = vals[i][0] + vals[i][1]
+                ands.append(pt_select(cur,ptflag,[low,hgh],return_and=True))
+            elif rads[i] == '%':
+                low = vals[i][0] - vals[i][1]*vals[i][0]/100
+                hgh = vals[i][0] + vals[i][1]*vals[i][0]/100
+                ands.append(pt_select(cur,ptflag,[low,hgh],return_and=True))
+        elif dtypes[to_filter[i]] == "VARCHAR":  # rads can only be = or !=
+            ands.append("%s %s '%s'" % (to_filter[i],rads[i],vals[i]))
+    q1 = "SELECT %s FROM hacker_all.arr WHERE " % (', '.join(ret))
+    for i,a in enumerate(ands):
+        q1 += a
+        if i != len(ands)-1:
+            q1 += " AND "
+
+    return q1
+    
