@@ -19,12 +19,12 @@ def pt_select(cursor,pt,tofit,return_and=True):
         tofit = [tofit[0],]
     if len(tofit) == 1:
         low = tofit[0] - dp[pt]; hgh = tofit[0] + dp[pt]
-        qp = "SELECT id FROM hacker_noamph.pt WHERE %s BETWEEN ? AND ? ORDER BY abs(?-%s) LIMIT 1" % (col[pt],col[pt])
+        qp = "SELECT id FROM hacker_all.pt WHERE %s BETWEEN ? AND ? ORDER BY abs(?-%s) LIMIT 1" % (col[pt],col[pt])
         ipt = cursor.execute(qp,(low,hgh,tofit[0])).fetchall()[0][0]
         ands = "%s = %i " % (ii[pt],ipt)
     elif len(tofit) == 2:
-        ands = "%s IN (SELECT id FROM hacker_noamph.pt WHERE %s BETWEEN %f AND %f)" % (ii[pt],col[pt],tofit[0],tofit[1])
-        qp = "SELECT id FROM hacker_noamph.pt WHERE %s BETWEEN ? AND ?" % (col[pt])
+        ands = "%s IN (SELECT id FROM hacker_all.pt WHERE %s BETWEEN %f AND %f)" % (ii[pt],col[pt],tofit[0],tofit[1])
+        qp = "SELECT id FROM hacker_all.pt WHERE %s BETWEEN ? AND ?" % (col[pt])
         _ = cursor.execute(qp,(tofit[0],tofit[1]))
         ipt = np.array([e[0] for e in cursor.fetchall()])
     if return_and:
@@ -78,4 +78,5 @@ def convert_df(df):
 
 def read_markdown_file(mdfile):
     return Path(mdfile).read_text()
+
 

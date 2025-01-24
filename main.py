@@ -18,7 +18,7 @@ class DuckDBConnection(ExperimentalBaseConnection[duckdb.DuckDBPyConnection]):
 
     def _connect(self, **kwargs) -> duckdb.DuckDBPyConnection:
         motherduck_token = os.getenv("motherduck_token")
-        conn = duckdb.connect(f"""md:hacker_noamph?motherduck_token={motherduck_token}""")
+        conn = duckdb.connect(f"""md:hacker_all?motherduck_token={motherduck_token}""")
         return conn
     
     def cursor(self) -> duckdb.DuckDBPyConnection:
@@ -76,10 +76,10 @@ def create_page(conn: duckdb.DuckDBPyConnection):
     skip_these = ['ip','id','it','meh']  # columns that should not be returnable or filterable
     # (P and T are dealt with separately, don't need ip or it directly, and id is for internal use)
     # TODO mdb_name probably not meaningful for most people, could return but not filter?
-    arr_vars = [e[0] for e in cur.execute("describe hacker_noamph.arr").fetchall() if e[0] not in skip_these]
+    arr_vars = [e[0] for e in cur.execute("describe hacker_all.arr").fetchall() if e[0] not in skip_these]
     dtypes = dict(conn.sql("select column_name, data_type from information_schema.columns").fetchall())
 
-    minP,maxP,minT,maxT = conn.sql("SELECT min(pressure), max(pressure), min(temperature), max(temperature) FROM hacker_noamph.pt").fetchall()[0]
+    minP,maxP,minT,maxT = conn.sql("SELECT min(pressure), max(pressure), min(temperature), max(temperature) FROM hacker_all.pt").fetchall()[0]
 
     tab_build, tab_plot, tab_calc, tab_doc = st.tabs(['query builder','data viz','(mis)fitting','documentation'])
 
@@ -119,7 +119,7 @@ def create_page(conn: duckdb.DuckDBPyConnection):
                 rad = ccc[1].selectbox('condition type',key='radio_%i' % ic,options=rad_options)
             
                 # get the numeric range so we don't set anything weird
-                minV,maxV = conn.sql("SELECT min(%s), max(%s) FROM hacker_noamph.arr WHERE %s >= 0" % \
+                minV,maxV = conn.sql("SELECT min(%s), max(%s) FROM hacker_all.arr WHERE %s >= 0" % \
                                     (to_filter[ic],to_filter[ic],to_filter[ic])).fetchall()[0]
                 if rad == 'in':  # range slider
                     val = ccc[2].slider('range',min_value=minV,max_value=maxV,value=(minV,maxV))
@@ -204,7 +204,7 @@ def create_page(conn: duckdb.DuckDBPyConnection):
             elif dtypes[to_filter[i]] == "VARCHAR":  # rads can only be = or !=
                 ands.append("%s %s '%s'" % (to_filter[i],rads[i],vals[i]))
         arr_ret.append('id')
-        q1 = "SELECT %s FROM hacker_noamph.arr WHERE " % (', '.join(arr_ret))
+        q1 = "SELECT %s FROM hacker_all.arr WHERE " % (', '.join(arr_ret))
         for i,a in enumerate(ands):
             q1 += a
             if i != len(ands)-1:
