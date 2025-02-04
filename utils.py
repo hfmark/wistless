@@ -120,6 +120,8 @@ def construct_query_new(cur,to_filter,rads,vals,ret,dtypes,ptLH):
                 low = vals[i][0] - vals[i][1]*vals[i][0]/100
                 hgh = vals[i][0] + vals[i][1]*vals[i][0]/100
                 ands.append(pt_select(cur,ptflag,[low,hgh],return_and=True))
+            elif rads[i] == 'in':
+                ands.append(pt_select(cur,ptflag,[vals[i][0],vals[i][1]],return_and=True))
         elif dtypes[to_filter[i]] == "VARCHAR":  # rads can only be = or !=
             ands.append("%s %s '%s'" % (to_filter[i],rads[i],vals[i]))
     q1 = "SELECT %s FROM hacker_all.arr WHERE " % (', '.join(ret))

@@ -17,8 +17,12 @@ class DuckDBConnection(ExperimentalBaseConnection[duckdb.DuckDBPyConnection]):
     """
 
     def _connect(self, **kwargs) -> duckdb.DuckDBPyConnection:
-        motherduck_token = os.getenv("motherduck_token")
-        conn = duckdb.connect(f"""md:hacker_all?motherduck_token={motherduck_token}""")
+        if 'database' in kwargs:
+            db = kwargs.pop('database')
+        else:
+            print('no db path given')
+            sys.exit()
+        conn = duckdb.connect(database=db, **kwargs)
         return conn
     
     def cursor(self) -> duckdb.DuckDBPyConnection:
@@ -36,14 +40,11 @@ class DuckDBConnection(ExperimentalBaseConnection[duckdb.DuckDBPyConnection]):
     def sql(self,query: str):
         return self._instance.sql(query)
 
-def get_db_connection():
+def get_db_connection(database='Data/hacker_all.db',read=True):
     """ Wrapper function to connect to database
-
-    _connect() can take kwargs but they are not currently being used
-    if using a local file this is where you might hard-code the path
     """
     if "duck_conn" not in st.session_state:
-        st.session_state['duck_conn'] = DuckDBConnection(connection_name='duck',read_only=True)
+        st.session_state['duck_conn'] = DuckDBConnection(database=database, connection_name='duck', read_only=read)
     return st.session_state["duck_conn"]
 
 def main():
@@ -162,13 +163,17 @@ def create_page(conn: duckdb.DuckDBPyConnection):
 
         # handle PT conditions: at limits? single value? a set range?
         if p_lo != minP or p_hi != maxP:
-            ands.append(pt_select(cur,'p',[p_lo,p_hi],return_and=True))
+            to_filter.append('pressure')
+            rads.append('in')
+            vals.append((p_lo, p_hi))
         if t_lo != minT or t_hi != maxT:
-            ands.append(pt_select(cur,'t',[t_lo,t_hi],return_and=True))
+            to_filter.append('temperature')
+            rads.append('in')
+            vals.append((t_lo, t_hi))
 
         # make ands from the filter lists
         arr_ret.append('id')
-        q1 = construct_query_new(cur, to_filter, rads, vals, arr_ret, dtypes, [p_lo,p_hi,t_lo,t_hi])
+        q1 = construct_query_new(cur, to_filter, rads, vals, arr_ret, dtypes, [minP,maxP,minT,maxT])
 
         with st.expander("view the query"):
             st.write(q1)
