@@ -161,7 +161,7 @@ def create_page(conn: duckdb.DuckDBPyConnection):
         # look at the list of fields to return
         arr_ret = [e for e in to_return]
 
-        # handle PT conditions: at limits? single value? a set range?
+        # handle PT conditions from sliders, if set
         if p_lo != minP or p_hi != maxP:
             to_filter.append('pressure')
             rads.append('in')
