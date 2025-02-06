@@ -277,17 +277,20 @@ def create_page(conn: duckdb.DuckDBPyConnection):
                 tm_ops = ['%.2f (%i)' % (tm_unique[0][i], tm_unique[1][i]) for i in range(len(tm_unique[0]))]
                 tfit = st.select_slider('fit T: value (#points)',options = tm_ops)
             if st.button("fit property"):
-                # recover the closest pressure/temperature from the selectors
-                pfit_actual = pr_unique[0][np.argmin(abs(pr_unique[0] - float(pfit.split('(')[0])))]
-                tfit_actual = tm_unique[0][np.argmin(abs(tm_unique[0] - float(tfit.split('(')[0])))]
-                sel = st.session_state['pt_df'][(st.session_state['pt_df']['pressure'] == pfit_actual)&(st.session_state['pt_df']['temperature'] == tfit_actual)]
-                if len(sel) > 1 and 'joint_misfit' in sel.columns:
-                    mean_val = np.average(sel[propfit],weights=1./sel['joint_misfit'])
-                    std_val = np.sqrt(np.cov(sel[propfit], aweights=1./sel['joint_misfit']))
-                    st.session_state['tx_fitted'] = 'mean: %.3f, std: %.3f, #points: %i' % (mean_val,std_val,len(sel))
+                if 'joint_mistfit' not in st.session_state['pt_df'].columns:
+                    st.toast('joint misfit required')
                 else:
-                    st.toast('not enough samples in range to fit')
-                st.write(st.session_state['tx_fitted'])
+                    # recover the closest pressure/temperature from the selectors
+                    pfit_actual = pr_unique[0][np.argmin(abs(pr_unique[0] - float(pfit.split('(')[0])))]
+                    tfit_actual = tm_unique[0][np.argmin(abs(tm_unique[0] - float(tfit.split('(')[0])))]
+                    sel = st.session_state['pt_df'][(st.session_state['pt_df']['pressure'] == pfit_actual)&(st.session_state['pt_df']['temperature'] == tfit_actual)]
+                    if len(sel) > 1:
+                        mean_val = np.average(sel[propfit],weights=1./sel['joint_misfit'])
+                        std_val = np.sqrt(np.cov(sel[propfit], aweights=1./sel['joint_misfit']))
+                        st.session_state['tx_fitted'] = 'mean: %.3f, std: %.3f, #points: %i' % (mean_val,std_val,len(sel))
+                    else:
+                        st.toast('not enough samples in range to fit')
+                    st.write(st.session_state['tx_fitted'])
 
     with tab_doc:
         lotsofdocs = read_markdown_file('wistless-docs.md')
