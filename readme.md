@@ -25,8 +25,7 @@ To run the example workflow scripts in jupyter, you will need:
 - jupyter
 - jupytext
 
-
-The recommended way to set up dependencies is in an isolated environment, using a tool like conda. For example: `conda create --name wistless numpy pandas python-duckdb altair-all` will install most of the dependencies; if you then activate the environment with `conda activate wistless`, you can install streamlit with `pip install streamlit` (streamlit is not available in the conda package repo).
+The recommended way to set up dependencies is in an isolated environment, using a tool like conda. For example: `conda create --name wistless numpy pandas python-duckdb altair-all scipy jupyter jupytext` will install most of the dependencies; if you then activate the environment with `conda activate wistless`, you can install streamlit with `pip install streamlit` (streamlit is not available in the conda package repo).
 
 Once you have downloaded and unpacked this repository (ie using `git clone`) and have also downloaded the database, the command to run the GUI app is `streamlit run main.py`.
 
@@ -35,6 +34,7 @@ Once you have downloaded and unpacked this repository (ie using `git clone`) and
 The `wistless` database can be downloaded from Zenodo at [link tba]. To use the GUI, make a `Data/` directory in the directory where the `wistless` source files are, and place the database file in `Data/`.
 
 ## References
+
 The sample database draws on work from several papers, including:
 
 Hacker, B. R., Kelemen, P. B., & Behn, M. D. (2015). Continental Lower Crust. Annual Review of Earth and Planetary Sciences, 43(1), 167–205. https://doi.org/10.1146/annurev-earth-050212-124117
