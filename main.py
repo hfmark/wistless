@@ -10,6 +10,8 @@ from utils import *
 from streamlit.connections import ExperimentalBaseConnection
 from streamlit.runtime.caching import cache_data
 
+dbname = "hacker_abqtz"
+
 st.set_page_config(page_title="wistless", page_icon=":duck:")
 
 class DuckDBConnection(ExperimentalBaseConnection[duckdb.DuckDBPyConnection]):
@@ -40,7 +42,7 @@ class DuckDBConnection(ExperimentalBaseConnection[duckdb.DuckDBPyConnection]):
     def sql(self,query: str):
         return self._instance.sql(query)
 
-def get_db_connection(database='Data/hacker_all.db',read=True):
+def get_db_connection(database='Data/%s.db' % dbname,read=True):
     """ Wrapper function to connect to database
     """
     if "duck_conn" not in st.session_state:
@@ -77,10 +79,10 @@ def create_page(conn: duckdb.DuckDBPyConnection):
     skip_these = ['ip','id','it','meh']  # columns that should not be returnable or filterable
     # (P and T are dealt with separately, don't need ip or it directly, and id is for internal use)
     # TODO mdb_name probably not meaningful for most people, could return but not filter?
-    arr_vars = [e[0] for e in cur.execute("describe hacker_all.arr").fetchall() if e[0] not in skip_these]
+    arr_vars = [e[0] for e in cur.execute("describe %s.arr" % dbname).fetchall() if e[0] not in skip_these]
     dtypes = dict(conn.sql("select column_name, data_type from information_schema.columns").fetchall())
 
-    minP,maxP,minT,maxT = conn.sql("SELECT min(pressure), max(pressure), min(temperature), max(temperature) FROM hacker_all.pt").fetchall()[0]
+    minP,maxP,minT,maxT = conn.sql("SELECT min(pressure), max(pressure), min(temperature), max(temperature) FROM %s.pt" % dbname).fetchall()[0]
 
     tab_build, tab_plot, tab_calc, tab_doc = st.tabs(['query builder','data viz','(mis)fitting','documentation'])
 
@@ -120,8 +122,8 @@ def create_page(conn: duckdb.DuckDBPyConnection):
                 rad = ccc[1].selectbox('condition type',key='radio_%i' % ic,options=rad_options)
             
                 # get the numeric range so we don't set anything weird
-                minV,maxV = conn.sql("SELECT min(%s), max(%s) FROM hacker_all.arr WHERE %s >= 0" % \
-                                    (to_filter[ic],to_filter[ic],to_filter[ic])).fetchall()[0]
+                minV,maxV = conn.sql("SELECT min(%s), max(%s) FROM %s.arr WHERE %s >= 0" % \
+                                    (to_filter[ic],to_filter[ic],dbname,to_filter[ic])).fetchall()[0]
                 if rad == 'in':  # range slider
                     val = ccc[2].slider('range',min_value=minV,max_value=maxV,value=(minV,maxV))
                 elif rad in ['+-','%']:

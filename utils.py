@@ -10,6 +10,8 @@ import os, sys
 # duckdb and queries
 ########################################################################
 
+dbname = "hacker_abqtz"
+
 def pt_select(cursor,pt,tofit,return_and=True):
     """ get ip or it values 
 
@@ -24,12 +26,12 @@ def pt_select(cursor,pt,tofit,return_and=True):
         tofit = [tofit[0],]
     if len(tofit) == 1:
         low = tofit[0] - dp[pt]; hgh = tofit[0] + dp[pt]
-        qp = "SELECT id FROM hacker_all.pt WHERE %s BETWEEN ? AND ? ORDER BY abs(?-%s) LIMIT 1" % (col[pt],col[pt])
+        qp = "SELECT id FROM %s.pt WHERE %s BETWEEN ? AND ? ORDER BY abs(?-%s) LIMIT 1" % (dbname,col[pt],col[pt])
         ipt = cursor.execute(qp,(low,hgh,tofit[0])).fetchall()[0][0]
         ands = "%s = %i " % (ii[pt],ipt)
     elif len(tofit) == 2:
-        ands = "%s IN (SELECT id FROM hacker_all.pt WHERE %s BETWEEN %f AND %f)" % (ii[pt],col[pt],tofit[0],tofit[1])
-        qp = "SELECT id FROM hacker_all.pt WHERE %s BETWEEN ? AND ?" % (col[pt])
+        ands = "%s IN (SELECT id FROM %s.pt WHERE %s BETWEEN %f AND %f)" % (ii[pt],dbname,col[pt],tofit[0],tofit[1])
+        qp = "SELECT id FROM %s.pt WHERE %s BETWEEN ? AND ?" % (dbname,col[pt])
         _ = cursor.execute(qp,(tofit[0],tofit[1]))
         ipt = np.array([e[0] for e in cursor.fetchall()])
     if return_and:
@@ -125,7 +127,7 @@ def construct_query_new(cur,to_filter,rads,vals,ret,dtypes,ptLH):
                 ands.append(pt_select(cur,ptflag,[vals[i][0],vals[i][1]],return_and=True))
         elif dtypes[to_filter[i]] == "VARCHAR":  # rads can only be = or !=
             ands.append("%s %s '%s'" % (to_filter[i],rads[i],vals[i]))
-    q1 = "SELECT %s FROM hacker_all.arr WHERE " % (', '.join(ret))
+    q1 = "SELECT %s FROM %s.arr WHERE " % (', '.join(ret),dbname)
     for i,a in enumerate(ands):
         q1 += a
         if i != len(ands)-1:
