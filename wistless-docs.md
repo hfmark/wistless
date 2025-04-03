@@ -13,7 +13,7 @@ The database contains information for lower crustal rock samples run through per
 Queries to the database return information for points in the database that satisfy all the filter conditions. This means that queries do not return a list of rock samples; rather, they return sample parameters at particular state variable conditions. If a rock sample matches the filter conditions at multiple points in (P, T) space, that sample will appear multiple times in the results. Users can limit the state variable space using filters, and can even specify a single point in state variable space if they want.
 
 ### Caution: the database is large
-The database contains ~5500 rocks. For each of these, we have calculated quantities over a 100x100 grid of P and T. This gives a table with ~5e7 individual entries. Broad filters (for example, all samples with Vp > 4) will therefore return a *lot* of entries and may crash the interface. If you need to run very broad queries, we recommend using a script instead of this GUI. Examples of a python workflow are included in the `wistless` package.
+The database contains ~5500 rocks. For each of these, we have calculated quantities over a 100x100 grid of P and T. This gives a table with ~5e7 individual entries. Broad filters (for example, all samples with Vp > 4) will therefore return a *lot* of entries and may crash the interface. If you need to run very broad queries, we recommend using a script instead of this GUI. Examples of a non-GUI python workflow are included in the `wistless` package.
 
 ## How to set up filters
 Pretty much all values can be used to filter the database. Standard conditional filters (<, >, =) are available.
