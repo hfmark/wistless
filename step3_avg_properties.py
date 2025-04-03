@@ -22,7 +22,7 @@ xzdf = conn.sql("SELECT ix, iz FROM matches GROUP BY ix, iz").df()
 
 # %%
 # loop points
-mgn = np.empty((21,441))  # same shape as the whole input velocity model
+mgn = np.zeros((21,441))*np.nan  # same shape as the whole input velocity model
 for i, row in xzdf.iterrows():
     samps = conn.sql("SELECT sample_id, xz_ip, xz_it FROM matches WHERE ix=%i AND iz=%i" % (row.ix, row.iz)).df()
     samps = samps.rename(mapper={"sample_id":"id","xz_ip":"ip","xz_it":"it"},axis=1)

@@ -13,7 +13,7 @@
 # really help anymore.
 #
 # In practice, for a velocity model with ~900 points in X and ~100 in Z within the db P/T range,
-# we've found that n=8 processes running for 24 hours works most of the time.
+# we've found that on a shared cluster, n=8 processes running for 24 hours works most of the time.
 # Depending on the velocities and the geotherm you will have more or fewer matches to each
 # query; scenarios with more matches will take longer to run.
 
@@ -59,8 +59,9 @@ temp = temp - 273.15  # convert K to C
 
 # %%
 # connect to db, retrieve some info
-conn = duckdb.connect("Data/hacker_all.db")  # the wistless database
-ptLH = conn.sql("SELECT min(pressure), max(pressure), min(temperature), max(temperature) FROM hacker_all.pt").fetchall()[0]
+dbname = "hacker_abqtz"
+conn = duckdb.connect("Data/%s.db" % dbname)  # the wistless database
+ptLH = conn.sql("SELECT min(pressure), max(pressure), min(temperature), max(temperature) FROM %s.pt" % dbname).fetchall()[0]
 minP,maxP,minT,maxT = ptLH
 dtype = dict(conn.sql("select column_name, data_type from information_schema.columns").fetchall())
 
@@ -69,9 +70,9 @@ dtype = dict(conn.sql("select column_name, data_type from information_schema.col
 conn.sql("ATTACH 'example_data/%i-output.db' AS output" % (q0))  # output db for results
 
 # %% [markdown]
-# NOTE this next line will overwrite the 'matches' table in the output file if it exists already
-# if you want to start a new table, you can either create a new db (change path in the "ATTACH" line above) or create a new table in an existing db (change the name 'matches' throughout the script).
-# to append lines to the 'matches' table, just comment out the "CREATE OR REPLACE TABLE" line below.
+# NOTE this next line will overwrite the 'matches' table in the output file if it exists already.
+# If you want to start a new table, you can either create a new db (change path in the "ATTACH" line above) or create a new table in the existing db (change the name 'matches' throughout the script).
+# To append lines to an existing 'matches' table, just comment out the "CREATE OR REPLACE TABLE" line below.
 
 # %%
 conn.sql("CREATE OR REPLACE TABLE output.matches (ix INTEGER, iz INTEGER, sample_id INTEGER, xz_ip INTEGER, xz_it INTEGER);")

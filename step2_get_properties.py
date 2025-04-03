@@ -22,9 +22,10 @@ q0 = 80
 
 # %%
 # database connections and attachments
-conn = duckdb.connect("Data/hacker_all.db") #,read_only=True)
+dbname = "hacker_abqtz"
+conn = duckdb.connect("Data/%s.db" % dbname) #,read_only=True)
 conn.sql("ATTACH 'example_data/%i-output.db' AS output" % (q0))
-ptLH = conn.sql("SELECT min(pressure), max(pressure), min(temperature), max(temperature) FROM hacker_all.pt").fetchall()[0]
+ptLH = conn.sql("SELECT min(pressure), max(pressure), min(temperature), max(temperature) FROM %s.pt" % dbname).fetchall()[0]
 minP,maxP,minT,maxT = ptLH
 cursor = conn.cursor()
 dtype = dict(conn.sql("select column_name, data_type from information_schema.columns").fetchall())
@@ -38,7 +39,7 @@ for j,sid in enumerate(sids['sample_id'].values):
     if j%50 == 0: print(j, sid)
     df = conn.sql("SELECT xz_ip, xz_it FROM output.matches WHERE sample_id=%i GROUP BY xz_ip, xz_it" % sid).df()
     for i, row in df.iterrows():
-        ret = conn.sql("SELECT * FROM hacker_all.arr WHERE ip=%i AND it=%i AND id=%i" % (row.xz_ip, row.xz_it, sid)).df()
+        ret = conn.sql("SELECT * FROM %s.arr WHERE ip=%i AND it=%i AND id=%i" % (dbname, row.xz_ip, row.xz_it, sid)).df()
         if i == 0 and j == 0:
             conn.sql("CREATE OR REPLACE TABLE output.sample AS SELECT * FROM ret")
         else:
