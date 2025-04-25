@@ -89,7 +89,7 @@ for ix in range(vmod.nx):
             continue
         to_filter = ['pressure','temperature','vp']  # filter on these columns
         rads = ['=','+-','%']  # match P (=), T in +/- range, Vp within a % range
-        vals = [pres[ix,iz],[temp[ix,iz],10],[vels[ix,iz],0.5]]  # note T spacing in db is 10*
+        vals = [pres[ix,iz],[temp[ix,iz],5],[vels[ix,iz],0.5]]  # note T spacing in db is 10*
 
         q1 = ut.construct_query_new(cursor,to_filter,rads,vals,ret,dtype,ptLH)
         df = conn.sql(q1).df()
