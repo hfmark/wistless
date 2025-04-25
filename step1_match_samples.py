@@ -27,6 +27,7 @@ from scipy.interpolate import interp1d
 
 # %%
 # read in a velocity model and calculate depth below seafloor
+# the example velocity model is in a specific binary format; adapt for your preferred velocity input
 vmod = ut.vmodel()
 vmod.read_vm_from_file('example_data/example_Vp_model.vm')
 vmod.apply_jumps_to_grid()
@@ -39,7 +40,7 @@ for i in range(vmod.nx):
 
 # %%
 # make a lookup table for P and T with a specified crustal thickness and surface heat flow
-cont = ut.continent()
+cont = ut.continent()  # object/class contains constants for geotherm models
 cont.CM = 28  # moho depth for setting layer thicknesses in P(z) calculation
 q0 = 80  # surface heat flow, mW/m^2
 zpt,Tpt,Apt,qpt,kpt = cont.calc_T_profile(q0*1e-3,zb=vmod.z2)
