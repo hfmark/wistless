@@ -279,7 +279,7 @@ def create_page(conn: duckdb.DuckDBPyConnection):
                 tm_ops = ['%.2f (%i)' % (tm_unique[0][i], tm_unique[1][i]) for i in range(len(tm_unique[0]))]
                 tfit = st.select_slider('fit T: value (#points)',options = tm_ops)
             if st.button("fit property"):
-                if 'joint_mistfit' not in st.session_state['pt_df'].columns:
+                if 'joint_misfit' not in st.session_state['pt_df'].columns:
                     st.toast('joint misfit required')
                 else:
                     # recover the closest pressure/temperature from the selectors
