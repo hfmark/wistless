@@ -18,7 +18,7 @@ import utils as ut
 
 # %% 
 # parameters we still need:
-q0 = 80
+q0 = 80 # (this is in the database file names)
 
 # %%
 # database connections and attachments

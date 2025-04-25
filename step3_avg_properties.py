@@ -1,7 +1,7 @@
 # %% [markdown]
 # The properties retrieved for sample/P/T points can now be queried to calculate things like
 # the average density or Mg# throughout the velocity model. If you also want to go back and look
-# at pressure and temperature you'll have to get those using the procedure in step1.
+# at pressure and temperature you can recalculate those using the procedure in step1.
 
 # %%
 # import libraries
@@ -17,7 +17,7 @@ q0 = 80  # surface heat flow
 conn = duckdb.connect("example_data/%i-output.db" % q0, read_only=True)
 
 # %%
-# get all the x/z points in the model
+# get all the x/z points in the model that have at least one matched sample point
 xzdf = conn.sql("SELECT ix, iz FROM matches GROUP BY ix, iz").df()
 
 # %%
