@@ -27,11 +27,15 @@ To run the example workflow scripts in jupyter, you will need:
 
 The recommended way to set up dependencies is in an isolated environment, using a tool like conda. For example: `conda create --name wistless numpy pandas python-duckdb altair-all scipy jupyter jupytext` will install most of the dependencies; if you then activate the environment with `conda activate wistless`, you can install streamlit with `pip install streamlit` (streamlit is not available in the conda package repo).
 
-Once you have downloaded and unpacked this repository (ie using `git clone`) and have also downloaded the database, the command to run the GUI app is `streamlit run main.py`.
+Once you have downloaded and unpacked this repository (ie using `git clone`) and have also downloaded the database and placed it at the right path, the command to run the GUI app is `streamlit run main.py`.
 
 ## Database
 
 The `wistless` database can be downloaded from Zenodo at [link tba]. To use the GUI, make a `Data/` directory in the directory where the `wistless` source files are, and place the database file in `Data/`.
+
+## Documentation
+
+More information on `wistless` usage and background can be found in `wistless-docs.md`, which is also accessible through the GUI. The example python scripts are commented.
 
 ## References
 
