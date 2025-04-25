@@ -30,7 +30,7 @@ The quantities selected to return are the quantities that can be output to csv, 
 ## Plotting options
 After running a query, users can download the results as a csv file and analyze/plot whatever they like. 
 
-`wistless` also provides some basic data visualization options in the **data viz** tab. Options include making 2D scatter plots of returned quantities; histograms; a heatmap showing the density of results returned in P/T space; and pie charts for discrete categorical variables. These plots use the `altair` python library.
+`wistless` also provides some basic data visualization options in the **data viz** tab. Options include making 2D scatter plots of returned quantities; histograms; a heatmap showing the density of results returned in P/T space; and pie charts for discrete categorical variables. These plots use the `altair` python library. Note that particular plot types require that the query return certain quantities or types of quantities, so that their values are available within the GUI app.
 
 ## Fitting and other calculations
 The **(mis)fitting** tab provides some basic functions for calculating misfit, and fitting returned quantities.
